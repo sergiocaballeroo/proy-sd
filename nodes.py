@@ -9,6 +9,8 @@ import json
 from datetime import datetime
 import sqlite3
 import time
+from pathlib import Path
+from db_utils import ensure_schema
 
 class Node:
     def __init__(self, id_node, port, nodes_info, node_ip='0.0.0.0', server_ready_event=None, base_port=5000,db_path = "/home/axelf/node_1.db", base_dir="/home/axelf/tables"):
