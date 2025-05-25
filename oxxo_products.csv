@@ -1,0 +1,86 @@
+id,name,category,price,stock,tax_rate,last_update
+1,Agua Ciel 600 ml,Bebidas,50.8,120,0.16,2025-05-25T05:05:05
+2,Cheetos Torciditos 52 g (Light),Botanas,48.29,60,0.16,2025-05-25T05:05:05
+3,Totis Donitas 30 g,Botanas,42.99,120,0.16,2025-05-25T05:05:05
+4,Gel Antibacterial Kleenex 250 ml,Higiene,18.26,120,0.16,2025-05-25T05:05:05
+5,Concha Vainilla Empacada,Panadería,53.62,100,0.16,2025-05-25T05:05:05
+6,Queso Oaxaca Zwan 200 g,Lácteos,58.22,120,0.16,2025-05-25T05:05:05
+7,M&M´s 45 g,Dulces,47.76,60,0.16,2025-05-25T05:05:05
+8,Atún Dolores Agua 140 g,Abarrotes,45.65,100,0.16,2025-05-25T05:05:05
+9,Takis Fuego 56 g,Botanas,59.76,80,0.16,2025-05-25T05:05:05
+10,Pepsi 355 ml lata,Bebidas,31.91,120,0.16,2025-05-25T05:05:05
+11,Barcel Chip´s Jalapeño 45 g,Botanas,32.57,60,0.16,2025-05-25T05:05:05
+12,Bebida Actimel 80 g,Lácteos,21.23,80,0.16,2025-05-25T05:05:05
+13,Salsa Valentina 370 ml,Abarrotes,11.05,120,0.16,2025-05-25T05:05:05
+14,Panqué Marinela 62 g,Panadería,21.51,60,0.16,2025-05-25T05:05:05
+15,Volt 473 ml,Energéticas,10.36,40,0.16,2025-05-25T05:05:05
+16,Pelon Pelo Rico 30 g,Dulces,21.45,40,0.16,2025-05-25T05:05:05
+17,Vive100 473 ml,Energéticas,52.98,40,0.16,2025-05-25T05:05:05
+18,Jugo Jumex Durazno 355 ml,Bebidas,35.71,80,0.16,2025-05-25T05:05:05
+19,Boost 473 ml,Energéticas,43.45,60,0.16,2025-05-25T05:05:05
+20,Jabón Zest 150 g,Higiene,36.96,120,0.16,2025-05-25T05:05:05
+21,Pingüinos 80 g Pack x2,Panadería,38.81,60,0.16,2025-05-25T05:05:05
+22,Hershey's Cookies'n'Cream 40 g,Dulces,49.23,100,0.16,2025-05-25T05:05:05
+23,Mantecada Nuez Bimbo 75 g,Panadería,19.52,40,0.16,2025-05-25T05:05:05
+24,Gansito 80 g,Panadería,42.95,80,0.16,2025-05-25T05:05:05
+25,Red Bull 250 ml,Energéticas,31.18,100,0.16,2025-05-25T05:05:05
+26,Bubulubu,Dulces,53.19,40,0.16,2025-05-25T05:05:05
+27,Crema Lala 450 g,Lácteos,43.67,40,0.16,2025-05-25T05:05:05
+28,Sprite 600 ml,Bebidas,13.03,80,0.16,2025-05-25T05:05:05
+29,Aceite Nutrioli 850 ml,Abarrotes,50.03,40,0.16,2025-05-25T05:05:05
+30,Cepillo Dental Oral‑B,Higiene,22.43,60,0.16,2025-05-25T05:05:05
+31,Fanta 600 ml,Bebidas,36.81,60,0.16,2025-05-25T05:05:05
+32,Leche Lala 1 L Entera,Lácteos,31.09,80,0.16,2025-05-25T05:05:05
+33,Azúcar Great Value 1 kg,Abarrotes,33.13,40,0.16,2025-05-25T05:05:05
+34,Frijol Mayocoba 900 g,Abarrotes,32.16,120,0.16,2025-05-25T05:05:05
+35,Hershey's Cookies'n'Cream 40 g Pack x2,Dulces,14.9,120,0.16,2025-05-25T05:05:05
+36,Rastrillos Gillette Prestobarba 3,Higiene,51.8,40,0.16,2025-05-25T05:05:05
+37,Desodorante Axe 150 ml,Higiene,56.32,60,0.16,2025-05-25T05:05:05
+38,Volt 473 ml Promo,Energéticas,18.32,100,0.16,2025-05-25T05:05:05
+39,Rockstar 473 ml,Energéticas,34.07,100,0.16,2025-05-25T05:05:05
+40,Snickers 50 g,Dulces,55.12,60,0.16,2025-05-25T05:05:05
+41,Bubulubu (Light) Pack x2 Promo,Dulces,28.95,100,0.16,2025-05-25T05:05:05
+42,Boost 473 ml Promo,Energéticas,23.26,100,0.16,2025-05-25T05:05:05
+43,Bubulubu (Light),Dulces,24.26,120,0.16,2025-05-25T05:05:05
+44,Panqué Marinela 62 g (Light),Panadería,43.09,100,0.16,2025-05-25T05:05:05
+45,Rockstar 473 ml Pack x2,Energéticas,17.74,80,0.16,2025-05-25T05:05:05
+46,Jugo Jumex Durazno 355 ml (Light),Bebidas,20.89,40,0.16,2025-05-25T05:05:05
+47,Coca‑Cola 355 ml lata,Bebidas,38.96,120,0.16,2025-05-25T05:05:05
+48,Queso Manchego Lala 200 g,Lácteos,13.05,80,0.16,2025-05-25T05:05:05
+49,Galletas Oreo 114 g,Dulces,12.86,120,0.16,2025-05-25T05:05:05
+50,Bubulubu Promo,Dulces,33.84,120,0.16,2025-05-25T05:05:05
+51,Shampoo Head & Shoulders 400 ml,Higiene,17.87,120,0.16,2025-05-25T05:05:05
+52,Bubulubu (Light) Pack x2,Dulces,14.01,60,0.16,2025-05-25T05:05:05
+53,Bimbo Pan Blanco 680 g,Panadería,13.43,40,0.16,2025-05-25T05:05:05
+54,Papel Higiénico Regio 4 pzas Promo,Higiene,43.76,60,0.16,2025-05-25T05:05:05
+55,Leche Deslactosada Alpura 1 L,Lácteos,30.19,120,0.16,2025-05-25T05:05:05
+56,Panqué Marinela 62 g (Light) Promo,Panadería,22.31,120,0.16,2025-05-25T05:05:05
+57,Aceite Nutrioli 850 ml Promo,Abarrotes,11.99,40,0.16,2025-05-25T05:05:05
+58,Ruffles Queso 55 g,Botanas,30.96,120,0.16,2025-05-25T05:05:05
+59,Jugo Jumex Durazno 355 ml (Light) Promo,Bebidas,38.26,80,0.16,2025-05-25T05:05:05
+60,Doritos Nacho 62 g,Botanas,56.74,60,0.16,2025-05-25T05:05:05
+61,Pringles Original 124 g,Botanas,43.49,80,0.16,2025-05-25T05:05:05
+62,Gatorade Azul 500 ml,Bebidas,21.93,100,0.16,2025-05-25T05:05:05
+63,Cheetos Torciditos 52 g,Botanas,16.54,80,0.16,2025-05-25T05:05:05
+64,Carlos V 50 g,Dulces,32.86,40,0.16,2025-05-25T05:05:05
+65,Cheetos Torciditos 52 g (Light) Pack x2,Botanas,10.47,120,0.16,2025-05-25T05:05:05
+66,Arroz SOS 1 kg,Abarrotes,59.92,40,0.16,2025-05-25T05:05:05
+67,Pasta Colgate 75 ml,Higiene,13.66,60,0.16,2025-05-25T05:05:05
+68,Totis Donitas 30 g Promo,Botanas,35.29,60,0.16,2025-05-25T05:05:05
+69,Cheetos Torciditos 52 g Pack x2,Botanas,56.66,40,0.16,2025-05-25T05:05:05
+70,Cheetos Torciditos 52 g Pack x2 Pack x2,Botanas,53.96,80,0.16,2025-05-25T05:05:05
+71,Pingüinos 80 g,Panadería,24.25,100,0.16,2025-05-25T05:05:05
+72,Yoghurt Danone Fresa 220 g,Lácteos,51.69,80,0.16,2025-05-25T05:05:05
+73,Paleta Payaso,Dulces,40.58,120,0.16,2025-05-25T05:05:05
+74,Papel Higiénico Regio 4 pzas,Higiene,10.39,120,0.16,2025-05-25T05:05:05
+75,Sal de Mar La Fina 1 kg,Abarrotes,24.97,40,0.16,2025-05-25T05:05:05
+76,Pepsi 355 ml lata Promo,Bebidas,56.95,60,0.16,2025-05-25T05:05:05
+77,Sabritas Clásicas 45 g,Botanas,23.22,40,0.16,2025-05-25T05:05:05
+78,Donitas Bimbo 70 g,Panadería,47.12,60,0.16,2025-05-25T05:05:05
+79,Yoghurt Yoplait Griego 150 g,Lácteos,23.62,120,0.16,2025-05-25T05:05:05
+80,Harina Hot Cakes Gamesa 1 kg,Abarrotes,20.53,80,0.16,2025-05-25T05:05:05
+81,Powerade Rojo 600 ml,Bebidas,20.18,80,0.16,2025-05-25T05:05:05
+82,Monster Energy 473 ml,Energéticas,35.27,80,0.16,2025-05-25T05:05:05
+83,Jugo Jumex Durazno 355 ml (Light) Promo Pack x2,Bebidas,55.27,40,0.16,2025-05-25T05:05:05
+84,Submarinos Fresa 80 g,Panadería,14.61,100,0.16,2025-05-25T05:05:05
+85,Submarinos Fresa 80 g (Light),Panadería,51.47,40,0.16,2025-05-25T05:05:05
