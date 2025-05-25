@@ -11,7 +11,7 @@ import sqlite3
 import time
 
 class Node:
-    def __init__(self, id_node, port, nodes_info, node_ip='0.0.0.0', server_ready_event=None, base_port=5000):
+    def __init__(self, id_node, port, nodes_info, node_ip='0.0.0.0', server_ready_event=None, base_port=5000,db_path = "/home/axelf/node_1.db", base_dir="/home/axelf/tables"):
         """
         Args:
             id_node: Identificador único del nodo (1, 2, 3...)
@@ -35,6 +35,9 @@ class Node:
         self.request_queue = []  # Cola de solicitudes pendientes
         self.in_critical_section = False  # Indica si el nodo está en la sección crítica
         self.replies_received = 0  # Contador de respuestas REPLY
+        db_path = Path(db_path).expanduser().resolve()
+        ensure_schema(db_path=db_path, data_dir=base_dir)
+        self.conn = sqlite3.connect(db_path, check_same_thread=False)
 
     def increment_clock(self):
         """Incrementa el reloj lógico"""
