@@ -13,7 +13,7 @@ from pathlib import Path
 from db_utils import ensure_schema
 
 class Node:
-    def __init__(self, id_node, port, nodes_info, node_ip='0.0.0.0', server_ready_event=None, base_port=5000,db_path = "/home/axelf/node_1.db", base_dir="/home/axelf/tables"):
+    def __init__(self, id_node, port, nodes_info, node_ip='0.0.0.0', server_ready_event=None, base_port=5000,db_path = "/home/sergio/proyecto/proy-sd/node_1.db", base_dir="/home/sergio/proyecto/proy-sd/tables"):
         """
         Args:
             id_node: Identificador único del nodo (1, 2, 3...)
