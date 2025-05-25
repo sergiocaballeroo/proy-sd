@@ -241,62 +241,101 @@ class Node:
         """Maneja una conexión entrante"""
         with conn:
             try:
+                # Recibir datos desde la conexión
                 data = conn.recv(1024).decode()
                 if not data:
                     return
 
-                message = json.loads(data)
+                # Decodificar el mensaje JSON principal
+                try:
+                    message = json.loads(data)
+                except json.JSONDecodeError:
+                    print(f"[Node {self.id_node}] Mensaje no es JSON válido: {data}")
+                    return
+
                 hour = datetime.fromisoformat(message['timestamp']).strftime("%H:%M:%S")
                 print(f"[Node {self.id_node}] Received from {message['origin']} at {hour}: {message['content']}")
 
+                # Guardar el mensaje en memoria y en la base de datos
                 self.messages.append(message)
-
-                # Guardar el mensaje en la base de datos
                 self._save_message_to_db(message)
 
-                # Procesar el tipo de mensaje
-                try:
-                    content = message['content']
-                    # Si el mensaje es un dict (ya decodificado), úsalo directamente
-                    if isinstance(content, dict):
-                        msg_type = content.get('type')
-                    else:
-                        # Si es string, intenta decodificarlo como JSON
-                        content = json.loads(content)
-                        msg_type = content.get('type')
-                except Exception:
-                    msg_type = None
+                # Procesar el contenido del mensaje
+                content = message.get('content', '')
+                msg_type = None
+                origin = None
+                
+                # Intentar decodificar 'content' si es un JSON string
+                if isinstance(content, str):
+                    try:
+                        content_data = json.loads(content)
+                        msg_type = content_data.get('type')
+                        origin = content_data.get('origin')
+                    except json.JSONDecodeError:
+                        # Si no es JSON válido, tratarlo como texto plano
+                        msg_type = None
+                elif isinstance(content, dict):
+                    # Si ya es un diccionario, extraer directamente
+                    msg_type = content.get('type')
+                    origin = content.get('origin')
 
-                # Aquí es donde debes agregar la lógica para manejar 'ELECTION' y 'COORDINATOR'
+                # Manejar mensajes según su tipo
                 if msg_type == 'ELECTION':
-                    self.handle_election_message(message)
+                    self.handle_election_message({
+                        'origin': origin,
+                        'clock': content_data.get('clock', 0),
+                        'timestamp': message['timestamp']
+                    })
+                    
                 elif msg_type == 'COORDINATOR':
-                    self.handle_coordinator_message(message)
+                    self.handle_coordinator_message({
+                        'origin': origin,
+                        'clock': content_data.get('clock', 0)
+                    })
+                    
+                elif msg_type == 'REPLY':
+                    print(f"[Node {self.id_node}] Received REPLY from Node {origin}")
+                    self.messages.append({
+                        'type': 'REPLY',
+                        'origin': origin,
+                        'clock': content_data.get('clock', 0)
+                    })
+                    
                 elif msg_type == 'INVENTORY_UPDATE':
-                    item_id = content['item_id']
-                    new_quantity = content['new_quantity']
-                    # Actualiza el inventario local SIN propagar
-                    self.update_inventory(item_id, new_quantity - self.get_item_quantity(item_id), propagate=False)
-                    print(f"[Node {self.id_node}] Inventory updated from INVENTORY_UPDATE for item {item_id}")
+                    item_id = content_data.get('item_id')
+                    new_quantity = content_data.get('new_quantity')
+                    if item_id and new_quantity:
+                        self.update_inventory(
+                            item_id, 
+                            new_quantity - self.get_item_quantity(item_id), 
+                            propagate=False
+                        )
 
-                # Enviar ACK al puerto correcto
-                if not str(message['content']).startswith("ACK:"):
-                    ack = {
+                # Enviar ACK para cualquier mensaje que no sea ACK
+                if not str(content).startswith("ACK:"):
+                    ack_msg = {
                         'origin': self.id_node,
                         'destination': self.base_port + message['origin'],
-                        'content': f"ACK: {message['content']}",
+                        'content': f"ACK: {json.dumps(content)}",
                         'timestamp': datetime.now().isoformat()
                     }
-
-                    if self.send_message(ack):
-                        print(f"[Node {self.id_node}] ACK sent to {message['origin']}: {ack['content']}")
+                    if self.send_message(ack_msg):
+                        print(f"[Node {self.id_node}] ACK sent to {message['origin']}")
                     else:
                         print(f"[Node {self.id_node}] Failed to send ACK to {message['origin']}")
 
-            except json.JSONDecodeError:
-                print(f"[Node {self.id_node}] Invalid message format")
+            except KeyError as ke:
+                print(f"[Node {self.id_node}] Error en formato del mensaje: Falta clave {ke}")
             except Exception as e:
-                print(f"[Node {self.id_node}] Connection error: {e}")
+                print(f"[Node {self.id_node}] Error crítico: {str(e)}")
+
+    def handle_coordinator_message(self, message):
+        """Maneja mensajes COORDINATOR (nodo maestro)"""
+        new_master_id = message['origin']
+        print(f"[Node {self.id_node}] New master is Node {new_master_id}")
+        self.is_master = False  # Este nodo ya no es maestro
+        # Opcional: Almacenar el ID del maestro actual
+        self.current_master = new_master_id
 
     # Debes agregar este método auxiliar en tu clase Node:
     def get_item_quantity(self, item_id):
@@ -448,7 +487,7 @@ class Node:
 
                 s.sendall(json.dumps(message_dict).encode('utf-8'))
                 self.messages.append(message_dict)
-                print(f"[Node {self.id_node}] Sent to {dest_port}: {message_dict['content']}")
+                print(f"[Node {self.id_node}] Sent to {dest_port}: {message_dict}")
                 return True
 
         except ConnectionRefusedError:
@@ -582,53 +621,54 @@ class Node:
 
     ### ELECCIÓN DE NODO MAESTRO ###
 
-    
+
     def start_election(self):
-        """Inicia un proceso de elección para seleccionar un nuevo nodo maestro"""
-        print(f"[Node {self.id_node}] Starting election...")
+        """Inicia una nueva elección"""
+        print(f"[Node {self.id_node}] Iniciando elección...")
         self.increment_clock()
-        self.is_master = False  # Este nodo no es el maestro por ahora
-        higher_nodes = [port for port in self.nodes_info.keys() if port > self.port]
-
-        print(f"[Node {self.id_node}] Higher nodes to contact: {higher_nodes}")
-
-        if not higher_nodes:
-            # Si no hay nodos con ID mayor, este nodo se convierte en el maestro
-            self.become_master()
-            return
-
-        # Enviar mensajes de ELECCIÓN a nodos con ID mayor
+        higher_nodes = [p for p in self.nodes_info if p > self.port]
+        
         for port in higher_nodes:
-            try:
-                election_message = {
-                    'type': 'ELECTION',
-                    'origin': self.id_node,
-                    'clock': self.clock,  # Incluye el reloj lógico actual
-                    'timestamp': datetime.now().isoformat()
-                }
-                print(f"[Node {self.id_node}] Sending ELECTION message to Node {port - self.base_port}: {election_message}")
-                self.send_message({
-                    'destination': port,
-                    'content': json.dumps(election_message)
-                })
-            except Exception as e:
-                print(f"[Node {self.id_node}] Error sending ELECTION to Node {port - self.base_port}: {e}")
-
-        # Esperar respuesta de nodos con ID mayor
+            election_msg = {
+                'type': 'ELECTION',
+                'origin': self.id_node,
+                'clock': self.clock,
+                'timestamp': datetime.now().isoformat()
+            }
+            self.send_message({
+                'destination': port,
+                'content': json.dumps(election_msg)
+            })
+        
+        # Esperar respuestas con timeout
         start_time = time.time()
-        while time.time() - start_time < 5:  # Timeout de 5 segundos
-            if self.is_master:
-                return  # Si ya se declaró un maestro, salir
+        while time.time() - start_time < 5:
+            for msg in self.messages:
+                if msg.get('type') == 'REPLY' and msg['origin'] > self.id_node:
+                    print(f"[Node {self.id_node}] REPLY recibido de Node {msg['origin']}")
+                    return
             time.sleep(0.1)
-
-        # Si no hay respuesta, este nodo se convierte en el maestro
+        
+        # Si no hay respuestas, convertirse en maestro
         self.become_master()
 
+
     def become_master(self):
-        """Declara este nodo como el nuevo maestro"""
-        print(f"[Node {self.id_node}] Declaring myself as the master. Clock: {self.clock}")
+        """Se declara como maestro"""
+        print(f"[Node {self.id_node}] ¡Soy el nuevo maestro!")
         self.is_master = True
-        self.announce_master()
+        # Notificar a todos los nodos
+        for port in self.nodes_info:
+            coordinator_msg = {
+                'type': 'COORDINATOR',
+                'origin': self.id_node,
+                'clock': self.clock,
+                'timestamp': datetime.now().isoformat()
+            }
+            self.send_message({
+                'destination': port,
+                'content': json.dumps(coordinator_msg)
+            })
 
     def announce_master(self):
         """Anuncia a todos los nodos que este nodo es el nuevo maestro"""
@@ -649,39 +689,21 @@ class Node:
                 print(f"[Node {self.id_node}] Error sending COORDINATOR to Node {port - self.base_port}: {e}")
 
     def handle_election_message(self, message):
-        """Maneja un mensaje de ELECCIÓN recibido"""
-        print(f"[Node {self.id_node}] Received ELECTION message: {message}")
-
-        # Verifica que el mensaje contenga el atributo 'clock'
-        if 'clock' not in message:
-            print(f"[Node {self.id_node}] Error: 'clock' not found in ELECTION message from Node {message['origin']}")
-            return
-
-        # Sincroniza el reloj lógico
+        """Maneja mensajes ELECTION"""
         self.synchronize_clock(message['clock'])
-        print(f"[Node {self.id_node}] Synchronized clock to: {self.clock}")
-
-        # Responder al nodo que inició la elección
-        reply_message = {
-            'type': 'REPLY',
-            'origin': self.id_node,
-            'timestamp': datetime.now().isoformat()
-        }
-        print(f"[Node {self.id_node}] Sending REPLY to Node {message['origin']}: {reply_message}")
-        self.send_message({
-            'destination': self.base_port + message['origin'],
-            'content': json.dumps(reply_message)
-        })
-
-        # Inicia una nueva elección si este nodo tiene un ID mayor
         if self.id_node > message['origin']:
-            print(f"[Node {self.id_node}] My ID ({self.id_node}) is higher than Node {message['origin']}. Starting new election.")
+            print(f"[Node {self.id_node}] Respondiendo a Node {message['origin']} con REPLY")
+            reply = {
+                'type': 'REPLY',
+                'origin': self.id_node,
+                'clock': self.clock,
+                'timestamp': datetime.now().isoformat()
+            }
+            self.send_message({
+                'destination': self.base_port + message['origin'],
+                'content': json.dumps(reply)
+            })
             self.start_election()
-
-    def handle_coordinator_message(self, message):
-        """Maneja un mensaje de COORDINADOR recibido"""
-        print(f"[Node {self.id_node}] Node {message['origin']} is the new master")
-        self.is_master = False  # Este nodo no es el maestro
 
 if __name__ == "__main__":
     # Configuración - CAMBIAR POR CADA NODO
