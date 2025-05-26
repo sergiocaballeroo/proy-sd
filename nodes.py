@@ -50,7 +50,6 @@ class Node:
         ensure_schema(db_path=db_path, seeds_dir=db_seeds_dir)
         self.conn = sqlite3.connect(db_path, check_same_thread=False)
         self.is_master = False  # Indica si este nodo es el maestro
-        self.is_master = False  # Indica si este nodo es el maestro
 
     def increment_clock(self):
         """Incrementa el reloj lógico"""
@@ -482,6 +481,158 @@ class Node:
                 elif msg_type == 'CLIENT_UPDATE':
                     # Handle client updates
                     self.handle_client_update(content_data)
+                
+                elif msg_type == 'GET_CAPACITY':
+                    item_id = content_data.get('item_id')
+                    current_quantity = self.get_item_quantity(item_id)
+                    capacity_message = {
+                        'type': 'CAPACITY_RESPONSE',
+                        'item_id': item_id,
+                        'capacity': current_quantity,
+                        'origin': self.id_node,
+                        'timestamp': datetime.now().isoformat()
+                    }
+                    self.send_message({
+                        'destination': self.base_port + origin,
+                        'content': json.dumps(capacity_message)
+                    })
+                    print(f"[Node {self.id_node}] Sent capacity response for item {item_id} to Node {origin}.")
+
+                elif msg_type == 'CLIENT_UPDATE':
+                    # Handle client updates
+                    self.handle_client_update(content_data)
+                
+                elif msg_type == 'GET_CAPACITY':
+                    item_id = content_data.get('item_id')
+                    current_quantity = self.get_item_quantity(item_id)
+                    capacity_message = {
+                        'type': 'CAPACITY_RESPONSE',
+                        'item_id': item_id,
+                        'capacity': current_quantity,
+                        'origin': self.id_node,
+                        'timestamp': datetime.now().isoformat()
+                    }
+                    self.send_message({
+                        'destination': self.base_port + origin,
+                        'content': json.dumps(capacity_message)
+                    })
+                    print(f"[Node {self.id_node}] Sent capacity response for item {item_id} to Node {origin}.")
+
+                elif msg_type == 'CLIENT_UPDATE':
+                    # Handle client updates
+                    self.handle_client_update(content_data)
+                
+                elif msg_type == 'GET_CAPACITY':
+                    item_id = content_data.get('item_id')
+                    current_quantity = self.get_item_quantity(item_id)
+                    capacity_message = {
+                        'type': 'CAPACITY_RESPONSE',
+                        'item_id': item_id,
+                        'capacity': current_quantity,
+                        'origin': self.id_node,
+                        'timestamp': datetime.now().isoformat()
+                    }
+                    self.send_message({
+                        'destination': self.base_port + origin,
+                        'content': json.dumps(capacity_message)
+                    })
+                    print(f"[Node {self.id_node}] Sent capacity response for item {item_id} to Node {origin}.")
+                
+                elif msg_type == 'GET_CAPACITY':
+                    item_id = content_data.get('item_id')
+                    current_quantity = self.get_item_quantity(item_id)
+                    capacity_message = {
+                        'type': 'CAPACITY_RESPONSE',
+                        'item_id': item_id,
+                        'capacity': current_quantity,
+                        'origin': self.id_node,
+                        'timestamp': datetime.now().isoformat()
+                    }
+                    self.send_message({
+                        'destination': self.base_port + origin,
+                        'content': json.dumps(capacity_message)
+                    })
+                    print(f"[Node {self.id_node}] Sent capacity response for item {item_id} to Node {origin}.")
+
+                elif msg_type == 'CLIENT_UPDATE':
+                    # Handle client updates
+                    self.handle_client_update(content_data)
+                
+                elif msg_type == 'GET_CAPACITY':
+                    item_id = content_data.get('item_id')
+                    current_quantity = self.get_item_quantity(item_id)
+                    capacity_message = {
+                        'type': 'CAPACITY_RESPONSE',
+                        'item_id': item_id,
+                        'capacity': current_quantity,
+                        'origin': self.id_node,
+                        'timestamp': datetime.now().isoformat()
+                    }
+                    self.send_message({
+                        'destination': self.base_port + origin,
+                        'content': json.dumps(capacity_message)
+                    })
+                    print(f"[Node {self.id_node}] Sent capacity response for item {item_id} to Node {origin}.")
+
+                elif msg_type == 'CLIENT_UPDATE':
+                    # Handle client updates
+                    self.handle_client_update(content_data)
+                
+                elif msg_type == 'GET_CAPACITY':
+                    item_id = content_data.get('item_id')
+                    current_quantity = self.get_item_quantity(item_id)
+                    capacity_message = {
+                        'type': 'CAPACITY_RESPONSE',
+                        'item_id': item_id,
+                        'capacity': current_quantity,
+                        'origin': self.id_node,
+                        'timestamp': datetime.now().isoformat()
+                    }
+                    self.send_message({
+                        'destination': self.base_port + origin,
+                        'content': json.dumps(capacity_message)
+                    })
+                    print(f"[Node {self.id_node}] Sent capacity response for item {item_id} to Node {origin}.")
+
+                elif msg_type == 'CLIENT_UPDATE':
+                    # Handle client updates
+                    self.handle_client_update(content_data)
+                
+                elif msg_type == 'GET_CAPACITY':
+                    item_id = content_data.get('item_id')
+                    current_quantity = self.get_item_quantity(item_id)
+                    capacity_message = {
+                        'type': 'CAPACITY_RESPONSE',
+                        'item_id': item_id,
+                        'capacity': current_quantity,
+                        'origin': self.id_node,
+                        'timestamp': datetime.now().isoformat()
+                    }
+                    self.send_message({
+                        'destination': self.base_port + origin,
+                        'content': json.dumps(capacity_message)
+                    })
+                    print(f"[Node {self.id_node}] Sent capacity response for item {item_id} to Node {origin}.")
+
+                elif msg_type == 'CLIENT_UPDATE':
+                    # Handle client updates
+                    self.handle_client_update(content_data)
+                
+                elif msg_type == 'GET_CAPACITY':
+                    item_id = content_data.get('item_id')
+                    current_quantity = self.get_item_quantity(item_id)
+                    capacity_message = {
+                        'type': 'CAPACITY_RESPONSE',
+                        'item_id': item_id,
+                        'capacity': current_quantity,
+                        'origin': self.id_node,
+                        'timestamp': datetime.now().isoformat()
+                    }
+                    self.send_message({
+                        'destination': self.base_port + origin,
+                        'content': json.dumps(capacity_message)
+                    })
+                    print(f"[Node {self.id_node}] Sent capacity response for item {item_id} to Node {origin}.")
 
                 # Send ACK
                 if not str(content).startswith("ACK:"):
@@ -558,8 +709,6 @@ class Node:
             f"   │ Logical Clock: {message.get('clock', 'N/A')}\n"
             f"   │ Timestamp: {message['timestamp']}\n"
         )
-        self.is_master = (self.id_node == new_master_id)  # Solo el nuevo maestro tiene is_master = True
-        self.current_master = new_master_id
         self.is_master = (self.id_node == new_master_id)  # Solo el nuevo maestro tiene is_master = True
         self.current_master = new_master_id
 
@@ -1687,4 +1836,3 @@ if __name__ == "__main__":
     threading.Thread(target=node.start_server, daemon=True).start()
     server_ready.wait()
     node.user_interface()
-
