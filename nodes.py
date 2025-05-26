@@ -40,6 +40,7 @@ class Node:
         db_path = Path(db_path).expanduser().resolve()
         ensure_schema(db_path=db_path, data_dir=base_dir)
         self.conn = sqlite3.connect(db_path, check_same_thread=False)
+        self.is_master = False  # Indica si este nodo es el maestro
 
     def increment_clock(self):
         """Incrementa el reloj lógico"""
@@ -324,6 +325,22 @@ class Node:
                 elif msg_type == 'CLIENT_UPDATE':
                     # Handle client updates
                     self.handle_client_update(content_data)
+                
+                elif msg_type == 'GET_CAPACITY':
+                    item_id = content_data.get('item_id')
+                    current_quantity = self.get_item_quantity(item_id)
+                    capacity_message = {
+                        'type': 'CAPACITY_RESPONSE',
+                        'item_id': item_id,
+                        'capacity': current_quantity,
+                        'origin': self.id_node,
+                        'timestamp': datetime.now().isoformat()
+                    }
+                    self.send_message({
+                        'destination': self.base_port + origin,
+                        'content': json.dumps(capacity_message)
+                    })
+                    print(f"[Node {self.id_node}] Sent capacity response for item {item_id} to Node {origin}.")
 
                 # Send ACK
                 if not str(content).startswith("ACK:"):
@@ -337,6 +354,8 @@ class Node:
                         print(f"[Node {self.id_node}] ACK sent to {origin}")
                     else:
                         print(f"[Node {self.id_node}] Failed to send ACK")
+                else:
+                    return
 
             except KeyError as ke:
                 print(f"[Node {self.id_node}] Message format error: Missing key {ke}")
@@ -398,8 +417,8 @@ class Node:
             f"   │ Logical Clock: {message.get('clock', 'N/A')}\n"
             f"   │ Timestamp: {message['timestamp']}\n"
         )
-        self.is_master = (self.id_node == new_master_id)
-        self.current_master = new_master_id 
+        self.is_master = (self.id_node == new_master_id)  # Solo el nuevo maestro tiene is_master = True
+        self.current_master = new_master_id
 
     # Debes agregar este método auxiliar en tu clase Node:
     def get_item_quantity(self, item_id):
@@ -589,7 +608,8 @@ class Node:
                 print("9. View client list")
                 print("10. Purchase an item (with mutual exclusion)")
                 print("11. Start master election")  # Nueva opción
-                print("12. Exit")
+                print("12. Distribute items")  # Nueva opción
+                print("13. Exit")
 
                 choice = input("Select option: ").strip()
 
@@ -616,6 +636,8 @@ class Node:
                 elif choice == "11":
                     self.start_election()  # Llama al método para iniciar la elección
                 elif choice == "12":
+                    self._distribute_items_ui()  # Llama al método para distribuir artículos
+                elif choice == "13":
                     print("Exiting...")
                     break
                 else:
@@ -874,6 +896,7 @@ class Node:
 
     def become_master(self):
         """Se declara como maestro y notifica a los demás nodos"""
+        self.is_master = True  # Este nodo ahora es el maestro
         print(
             f"\n[Node {self.id_node}] 🎉 MASTER NODE ELECTED\n"
             f"   │ Current Clock: {self.clock}\n"
@@ -934,6 +957,72 @@ class Node:
             })
             self.start_election()
 
+    def distribute_items(self, item_id, total_quantity):
+        """Distribuye automáticamente los artículos entre las sucursales"""
+        if not self.is_master:
+            print(f"[Node {self.id_node}] Error: Only the master node can distribute items.")
+            return
+
+        print(f"[Node {self.id_node}] Starting distribution of item {item_id} with total quantity {total_quantity}.")
+
+        # Obtener la capacidad actual de cada nodo
+        capacities = {}
+        for port, ip in self.nodes_info.items():
+            try:
+                message = {
+                    'type': 'GET_CAPACITY',
+                    'item_id': item_id,
+                    'origin': self.id_node,
+                    'timestamp': datetime.now().isoformat()
+                }
+                if self.send_message({'destination': port, 'content': json.dumps(message)}):
+                    print(f"[Node {self.id_node}] Requested capacity from Node {port - self.base_port}")
+            except Exception as e:
+                print(f"[Node {self.id_node}] Error requesting capacity from Node {port - self.base_port}: {e}")
+
+        # Simular capacidades (en un entorno real, esto se recibiría como respuesta)
+        capacities = {port: 100 for port in self.nodes_info.keys()}  # Ejemplo: cada nodo tiene capacidad de 100
+
+        # Calcular la distribución equitativa
+        total_nodes = len(capacities)
+        base_quantity = total_quantity // total_nodes
+        remainder = total_quantity % total_nodes
+
+        # Distribuir los artículos
+        for port, capacity in capacities.items():
+            quantity_to_send = base_quantity + (1 if remainder > 0 else 0)
+            if remainder > 0:
+                remainder -= 1
+
+            # Enviar actualización de inventario al nodo
+            update_message = {
+                'type': 'INVENTORY_UPDATE',
+                'item_id': item_id,
+                'new_quantity': quantity_to_send,
+                'origin': self.id_node,
+                'timestamp': datetime.now().isoformat()
+            }
+            try:
+                if self.send_message({'destination': port, 'content': json.dumps(update_message)}):
+                    print(f"[Node {self.id_node}] Sent {quantity_to_send} of item {item_id} to Node {port - self.base_port}")
+            except Exception as e:
+                print(f"[Node {self.id_node}] Error sending inventory update to Node {port - self.base_port}: {e}")
+
+        print(f"[Node {self.id_node}] Distribution summary:")
+        for port, quantity in capacities.items():
+            print(f"  - Node {port - self.base_port}: {quantity} items")
+
+        print(f"[Node {self.id_node}] Distribution of item {item_id} completed.")
+
+    def _distribute_items_ui(self):
+        """Interfaz para distribuir artículos"""
+        try:
+            item_id = int(input("Enter the item ID to distribute: "))
+            total_quantity = int(input("Enter the total quantity to distribute: "))
+            self.distribute_items(item_id, total_quantity)
+        except ValueError:
+            print("Invalid input. Please enter numeric values.")
+
 if __name__ == "__main__":
     # Configuración - CAMBIAR POR CADA NODO
     NODE_ID = int(os.getenv("NODE_ID", 1))  # Toma el valor de la variable de entorno NODE_ID, por defecto 1  # Cambiar este valor (1, 2, 3...)
@@ -957,4 +1046,3 @@ if __name__ == "__main__":
     threading.Thread(target=node.start_server, daemon=True).start()
     server_ready.wait()
     node.user_interface()
-
