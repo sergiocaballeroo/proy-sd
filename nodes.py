@@ -468,7 +468,7 @@ class Node:
             conn.commit()
             client_id = cursor.lastrowid  # Obtener el ID del cliente recién agregado
             conn.close()
-            print(f"[Node {self.id_node}] Client added: {name}")
+            print(f"[Node {self.id_node}] Product added: {name}")
 
             # Propagar la actualización a otros nodos
 
@@ -1005,10 +1005,10 @@ if __name__ == "__main__":
     NODE_ID = int(os.getenv("NODE_ID", 1))  # Toma el valor de la variable de entorno NODE_ID, por defecto 1  # Cambiar este valor (1, 2, 3...)
     BASE_PORT = 5000
     NODE_IPS = {
-        5001: '192.168.100.61',
-        5002: '192.168.100.62',
-        5003: '192.168.100.63',
-        5004: '192.168.100.64'
+        5001: '192.168.10.131',
+        5002: '192.168.10.132',
+        5003: '192.168.10.133',
+        5004: '192.168.10.134'
     }
 
     server_ready = threading.Event()
