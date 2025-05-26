@@ -1687,3 +1687,4 @@ if __name__ == "__main__":
     threading.Thread(target=node.start_server, daemon=True).start()
     server_ready.wait()
     node.user_interface()
+
