@@ -1031,8 +1031,12 @@ class Node:
             print("Invalid input. Please enter numeric values.")
 
 if __name__ == "__main__":
+    # Autoescaneo de IP para asignar su ID.
     # Configuración - CAMBIAR POR CADA NODO
-    NODE_ID = int(os.getenv("NODE_ID", 1))  # Toma el valor de la variable de entorno NODE_ID, por defecto 1  # Cambiar este valor (1, 2, 3...)
+    hostname = socket.gethostbyname(socket.gethostname())
+    # Toma el valor de la variable de entorno NODE_ID, si no se cuenta con valor, se determina con el ultimo
+    # digito de su IP fija.
+    NODE_ID = int(os.getenv("NODE_ID", hostname[-1]))
     BASE_PORT = 5000
     NODE_IPS = {
         5001: '192.168.100.61',

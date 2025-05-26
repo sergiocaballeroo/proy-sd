@@ -16,7 +16,6 @@ from pathlib import Path
 from typing import Final
 from datetime import datetime
 
-
 SCHEMA_SQL: Final[str] = """
 PRAGMA foreign_keys = ON;
 
@@ -32,7 +31,6 @@ CREATE TABLE IF NOT EXISTS items (
 );
 
 CREATE TABLE IF NOT EXISTS branch_stock (
-    stock_entry_id   INTEGER PRIMARY KEY AUTOINCREMENT,
     branch_id   INTEGER,
     item_id     INTEGER,
     quantity    INTEGER,
