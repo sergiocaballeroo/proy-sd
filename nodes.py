@@ -253,6 +253,17 @@ class Node:
                     email TEXT,
                     phone TEXT,
                     last_update TEXT
+                    last_update TEXT
+                )
+            """)
+            # Crear tabla de clientes
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS clients (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    name TEXT,
+                    email TEXT,
+                    phone TEXT,
+                    last_update TEXT
                 )
             """)
             conn.commit()
@@ -665,49 +676,21 @@ class Node:
             except Exception as e:
                 print(f"Error: {e}")
 
-    def add_client(self, name, phone, email):
-        """Agrega un cliente a la base de datos y propaga la actualización a otros nodos"""
+    def add_client(self, name, email, phone):
+        """Agrega un cliente a la base de datos"""
         try:
             conn = sqlite3.connect(self.db_name)
             cursor = conn.cursor()
-            # Insertar cliente localmente
             cursor.execute("""
-                INSERT INTO clients (name, phone, email, last_update)
+                INSERT INTO clients (name, email, phone, last_update)
                 VALUES (?, ?, ?, ?)
-            """, (name, phone, email, datetime.now().isoformat()))
+            """, (name, email, phone, datetime.now().isoformat()))
             conn.commit()
-            client_id = cursor.lastrowid  # Obtener el ID del cliente recién agregado
             conn.close()
             print(f"[Node {self.id_node}] Client added: {name}")
-
-            # Propagar la actualización a otros nodos
-            self.propagate_client_update(client_id, name, phone, email)
-
         except Exception as e:
             print(f"[Node {self.id_node}] Error adding client: {e}")
     
-    def propagate_client_update(self, client_id, name, phone, email):
-        """Propaga la actualización de un cliente a los demás nodos"""
-        update_message = {
-            'type': 'CLIENT_UPDATE',
-            'client_id': client_id,
-            'name': name,
-            'phone': phone,
-            'email': email,
-            'last_update': datetime.now().isoformat(),
-            'origin': self.id_node
-        }
-
-        for port, ip in self.nodes_info.items():
-            try:
-                msg = {
-                    'destination': port,
-                    'content': json.dumps(update_message)
-                }
-                if self.send_message(msg):
-                    print(f"[Node {self.id_node}] Client update sent to Node {port - self.base_port}")
-            except Exception as e:
-                print(f"[Node {self.id_node}] Error sending client update to Node {port - self.base_port}: {e}")
 
     def view_clients(self):
         """Muestra la lista de clientes"""
