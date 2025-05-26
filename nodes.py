@@ -13,7 +13,8 @@ from pathlib import Path
 from db_utils import ensure_schema
 
 class Node:
-    def __init__(self, id_node, port, nodes_info, node_ip='0.0.0.0', server_ready_event=None, base_port=5000,db_path = "/home/sergio/proyecto/proy-sd/node_4.db", base_dir="/home/sergio/proyecto/proy-sd/tables"):
+    def __init__(self, id_node, port, nodes_info, node_ip='0.0.0.0', server_ready_event=None, base_port=5000, db_path = "C:/Users/irvin/Desktop/Inventario/proy-sd/node_1.db"
+, base_dir="C:/Users/irvin/Desktop/Inventario/proy-sd/seeds"):
         """
         Args:
             id_node: Identificador único del nodo (1, 2, 3...)
@@ -618,8 +619,9 @@ class Node:
                 print("8. Add new client")
                 print("9. View client list")
                 print("10. Purchase an item (with mutual exclusion)")
-                print("11. Start master election")  # Nueva opción
-                print("12. Exit")
+                print("11. Show Product guide")
+                print("12. Start master election")  # Nueva opción
+                print("13. Exit")
 
                 choice = input("Select option: ").strip()
 
@@ -644,9 +646,9 @@ class Node:
                 elif choice == "10":
                     self._purchase_item_ui()
                 elif choice == "11":
-                    self.start_election()  # Llama al método para iniciar la elección
-                elif choice == "12":
                     self.user_guide()
+                elif choice == "12":
+                    self.start_election()  # Llama al método para iniciar la elección
                 elif choice == "13":
                     print("Exiting...")
                     break
