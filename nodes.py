@@ -445,6 +445,38 @@ class Node:
         except Exception as e:
             print(f"[Node {self.id_node}] Error reading inventory: {e}")
 
+    def _update_inventory_ui(self):
+        """Maneja la inserción de items al inventario"""
+        try:
+            name = input("Enter product name: ").strip()
+            quantity = input("Enter quantity: ").strip()
+            price = input("Enter price: ").strip()
+            self.add_item_inventory(name, quantity, price)
+        except Exception as e:
+            print(f"Error: {e}")
+
+    def add_item_inventory(self, name, quantity, price):
+        """Agrega un producto al inventario y propaga la actualización a otros nodos"""
+        try:
+            conn = sqlite3.connect(self.db_name)
+            cursor = conn.cursor()
+            # Insertar cliente localmente
+            cursor.execute("""
+                INSERT INTO inventory (name, quantity, price, last_update)
+                VALUES (?, ?, ?, ?)
+            """, (name, quantity, price, datetime.now().isoformat()))
+            conn.commit()
+            client_id = cursor.lastrowid  # Obtener el ID del cliente recién agregado
+            conn.close()
+            print(f"[Node {self.id_node}] Client added: {name}")
+
+            # Propagar la actualización a otros nodos
+
+        except Exception as e:
+            print(f"[Node {self.id_node}] Error adding product to inventory: {e}")
+
+
+
     def update_inventory(self, item_id, quantity_change, propagate=True):
         """Actualiza la cantidad de un artículo en el inventario y propaga el cambio si es necesario"""
         try:
