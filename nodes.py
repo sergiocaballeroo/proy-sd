@@ -12,6 +12,7 @@ import time
 from pathlib import Path
 from db_utils import ensure_schema
 from utils import get_static_ip
+from services import products as products_service
 
 class Node:
     def __init__(self, id_node, port, nodes_info, node_ip='0.0.0.0', server_ready_event=None, base_port=5000):
@@ -198,7 +199,6 @@ class Node:
             print(f"[Node {self.id_node}] Inventory update NOT confirmed by majority ({confirmations}/{total_nodes})")
             return False
 
-            
     def start_server(self):
         """Inicia el servidor TCP para recibir mensajes"""
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
@@ -428,7 +428,7 @@ class Node:
         self.is_master = (self.id_node == new_master_id)  # Solo el nuevo maestro tiene is_master = True
         self.current_master = new_master_id
 
-    # Debes agregar este método auxiliar en tu clase Node:
+    # INVENTARIOS
     def get_item_quantity(self, item_id):
         """Obtiene la cantidad actual de un artículo en el inventario local"""
         try:
@@ -609,15 +609,22 @@ class Node:
                 print("2. View message history")
                 print("3. Export message history")
                 print("4. View DB messages")
-                print("5. Show inventory")
-                print("6. Update inventory")
-                print("7. Sync inventory with other nodes")
-                print("8. Add new client")
-                print("9. View client list")
-                print("10. Purchase an item (with mutual exclusion)")
-                print("11. Start master election")  # Nueva opción
-                print("12. Distribute items")  # Nueva opción
-                print("13. Exit")
+                print("--> Products")
+                print("5. Create product")
+                print("6. Update product")
+                print("7. Show products")
+                print("--> Inventory")
+                print("8. Show inventory")
+                print("9. Update inventory")
+                print("10. Sync inventory with other nodes")
+                print("--> Client")
+                print("11. Add new client")
+                print("12. View client list")
+                print("--> Purchases")
+                print("13. Purchase an item (with mutual exclusion)")
+                print("--> ")
+                print("14. Start master election")  # Nueva opción
+                print("15. Exit")
 
                 choice = input("Select option: ").strip()
 
@@ -630,22 +637,26 @@ class Node:
                 elif choice == "4":
                     self._show_db_messages()
                 elif choice == "5":
-                    self.show_inventory()
+                    self.create_product_ui()
                 elif choice == "6":
-                    self._update_inventory_ui()
+                    self.update_product_ui()
                 elif choice == "7":
-                    self.sync_inventory()
+                    self.show_products()
                 elif choice == "8":
-                    self._add_client_ui()
+                    self.show_inventory()
                 elif choice == "9":
-                    self._view_clients()
+                    self._update_inventory_ui()
                 elif choice == "10":
-                    self._purchase_item_ui()
+                    self.sync_inventory()
                 elif choice == "11":
-                    self.start_election()  # Llama al método para iniciar la elección
+                    self._add_client_ui()
                 elif choice == "12":
-                    self._distribute_items_ui()  # Llama al método para distribuir artículos
+                    self._view_clients()
                 elif choice == "13":
+                    self._purchase_item_ui()
+                elif choice == "14":
+                    self.start_election()  # Llama al método para iniciar la elección
+                elif choice == "15":
                     print("Exiting...")
                     break
                 else:
@@ -965,78 +976,38 @@ class Node:
             })
             self.start_election()
 
-    def distribute_items(self, item_id, total_quantity):
-        """Distribuye automáticamente los artículos entre las sucursales"""
-        if not self.is_master:
-            print(f"[Node {self.id_node}] Error: Only the master node can distribute items.")
-            return
+    # PRODUCTOS
+    def show_products(self):
+        products_service.show_products(self)
 
-        print(f"[Node {self.id_node}] Starting distribution of item {item_id} with total quantity {total_quantity}.")
-
-        # Obtener la capacidad actual de cada nodo
-        capacities = {}
-        for port, ip in self.nodes_info.items():
-            try:
-                message = {
-                    'type': 'GET_CAPACITY',
-                    'item_id': item_id,
-                    'origin': self.id_node,
-                    'timestamp': datetime.now().isoformat()
-                }
-                if self.send_message({'destination': port, 'content': json.dumps(message)}):
-                    print(f"[Node {self.id_node}] Requested capacity from Node {port - self.base_port}")
-            except Exception as e:
-                print(f"[Node {self.id_node}] Error requesting capacity from Node {port - self.base_port}: {e}")
-
-        # Simular capacidades (en un entorno real, esto se recibiría como respuesta)
-        capacities = {port: 100 for port in self.nodes_info.keys()}  # Ejemplo: cada nodo tiene capacidad de 100
-
-        # Calcular la distribución equitativa
-        total_nodes = len(capacities)
-        base_quantity = total_quantity // total_nodes
-        remainder = total_quantity % total_nodes
-
-        # Distribuir los artículos
-        for port, capacity in capacities.items():
-            quantity_to_send = base_quantity + (1 if remainder > 0 else 0)
-            if remainder > 0:
-                remainder -= 1
-
-            # Enviar actualización de inventario al nodo
-            update_message = {
-                'type': 'INVENTORY_UPDATE',
-                'item_id': item_id,
-                'new_quantity': quantity_to_send,
-                'origin': self.id_node,
-                'timestamp': datetime.now().isoformat()
-            }
-            try:
-                if self.send_message({'destination': port, 'content': json.dumps(update_message)}):
-                    print(f"[Node {self.id_node}] Sent {quantity_to_send} of item {item_id} to Node {port - self.base_port}")
-            except Exception as e:
-                print(f"[Node {self.id_node}] Error sending inventory update to Node {port - self.base_port}: {e}")
-
-        print(f"[Node {self.id_node}] Distribution summary:")
-        for port, quantity in capacities.items():
-            print(f"  - Node {port - self.base_port}: {quantity} items")
-
-        print(f"[Node {self.id_node}] Distribution of item {item_id} completed.")
-
-    def _distribute_items_ui(self):
-        """Interfaz para distribuir artículos"""
+    def create_product_ui(self):
         try:
-            item_id = int(input("Enter the item ID to distribute: "))
-            total_quantity = int(input("Enter the total quantity to distribute: "))
-            self.distribute_items(item_id, total_quantity)
+            name = input("Nombre del producto: ")
+            category = input("Categoria: ")
+            price = float(input("Precio unitario: "))
+            stock = int(input("Unidades disponibles: "))
+
+            product_data = { 'name': name, 'category': category, 'price': price, 'stock': stock}
+            products_service.create_product(self, product_data)
         except ValueError:
-            print("Invalid input. Please enter numeric values.")
+            print("Entrada incorrecta. Por favor intenta de nuevo.")
+
+    def update_product_ui(self):
+        try:
+            product_id = input("ID del producto a actualizar: ")
+            name = input("Nombre del producto: ")
+            category = input("Categoria: ")
+            price = float(input("Precio unitario: "))
+
+            product_data = { 'name': name, 'category': category, 'price': price, 'id': product_id}
+            products_service.update_product(self, product_data)
+        except ValueError:
+            print("Entrada incorrecta. Por favor intenta de nuevo.")
 
 if __name__ == "__main__":
-    # Autoescaneo de IP para asignar su ID.
-    hostname = get_static_ip()
     # Toma el valor de la variable de entorno NODE_ID, si no se cuenta con valor, se determina con el ultimo
     # digito de su IP estatica.
-    NODE_ID = int(os.getenv("NODE_ID", hostname[-1]))
+    NODE_ID = int(os.getenv("NODE_ID", get_static_ip()[-1]))
     BASE_PORT = 5000
     NODE_IPS = {
         5001: '192.168.100.61',

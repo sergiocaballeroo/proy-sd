@@ -20,13 +20,13 @@ SCHEMA_SQL: Final[str] = """
 PRAGMA foreign_keys = ON;
 
 CREATE TABLE IF NOT EXISTS items (
-    id          INTEGER PRIMARY KEY,
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
     name        TEXT    NOT NULL,
     category    TEXT    NOT NULL,
     price       REAL    NOT NULL,
     stock   INTEGER NOT NULL,
-    tax_rate    REAL    NOT NULL,
-    last_update TEXT    NOT NULL,
+    tax_rate    REAL    NOT NULL DEFAULT 0.16,
+    last_update TEXT    NOT NULL DEFAULT CURRENT_TIMESTAMP,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
