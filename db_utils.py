@@ -31,7 +31,6 @@ CREATE TABLE IF NOT EXISTS items (
 );
 
 CREATE TABLE IF NOT EXISTS branch_stock (
-    stock_entry_id   INTEGER PRIMARY KEY AUTOINCREMENT,
     branch_id   INTEGER,
     item_id     INTEGER,
     quantity    INTEGER,
