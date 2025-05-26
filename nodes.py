@@ -246,6 +246,17 @@ class Node:
                     last_update TEXT
                 )
             """)
+
+            # Crear tabla de guia de producto
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS guia (
+                    id_articulo INTEGER PRIMARY KEY AUTOINCREMENT,
+                    id_serie INTEGER,
+                    sucursal TEXT,
+                    id_cliente TEXT,
+                    last_update TEXT
+                )
+            """)  
             conn.commit()
             conn.close()
             print(f"[Node {self.id_node}] Database initialized.")
@@ -568,6 +579,25 @@ class Node:
             print(f"[Node {self.id_node}] Send error: {e}")
         
         return False
+    
+    
+#Nuevo metodo Guia de producto
+    def user_guide(self):
+        """Muestra Guia de producto"""
+        print(f'mostrar guia de producto')
+        try:
+            conn = sqlite3.connect(self.db_name)
+            cursor = conn.cursor()
+            cursor.execute("SELECT id_articulo, id_serie, sucursal, id_cliente, last_update FROM guia")
+            rows = cursor.fetchall()
+            conn.close()
+
+            print("\nGuia Producto:")
+            print("=" * 40)
+            for row in rows:
+                print(f"ID_Articulo: {row[0]}, ID_Serie: {row[1]}, Sucursal: {row[2]}, ID_cliente: {row[3]}, Last Updated: {row[4]}")
+        except Exception as e:
+            print(f"[Node {self.id_node}] Error reading product guide: {e}")
 
 
     def user_interface(self):
@@ -616,6 +646,8 @@ class Node:
                 elif choice == "11":
                     self.start_election()  # Llama al método para iniciar la elección
                 elif choice == "12":
+                    self.user_guide()
+                elif choice == "13":
                     print("Exiting...")
                     break
                 else:
