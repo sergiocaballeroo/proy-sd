@@ -434,7 +434,7 @@ class Node:
         try:
             conn = sqlite3.connect(self.db_name)
             cursor = conn.cursor()
-            cursor.execute("SELECT id, name, quantity, price, last_updated FROM inventory")
+            cursor.execute("SELECT id, name, quantity, price, last_update FROM inventory")
             rows = cursor.fetchall()
             conn.close()
 
