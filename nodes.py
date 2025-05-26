@@ -11,6 +11,7 @@ import sqlite3
 import time
 from pathlib import Path
 from db_utils import ensure_schema
+from utils import get_static_ip
 
 class Node:
     def __init__(self, id_node, port, nodes_info, node_ip='0.0.0.0', server_ready_event=None, base_port=5000):
@@ -1032,10 +1033,9 @@ class Node:
 
 if __name__ == "__main__":
     # Autoescaneo de IP para asignar su ID.
-    # Configuración - CAMBIAR POR CADA NODO
-    hostname = socket.gethostbyname(socket.gethostname())
+    hostname = get_static_ip()
     # Toma el valor de la variable de entorno NODE_ID, si no se cuenta con valor, se determina con el ultimo
-    # digito de su IP fija.
+    # digito de su IP estatica.
     NODE_ID = int(os.getenv("NODE_ID", hostname[-1]))
     BASE_PORT = 5000
     NODE_IPS = {

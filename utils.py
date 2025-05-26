@@ -9,4 +9,5 @@ def get_static_ip():
     s.close()
     return ip
   except Exception as e:
-    return f"Error al obtener IP: {e}"
+    # Por defecto, se coloca ID 1 al nodo.
+    return 1
