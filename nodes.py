@@ -13,7 +13,7 @@ from pathlib import Path
 from db_utils import ensure_schema
 
 class Node:
-    def __init__(self, id_node, port, nodes_info, node_ip='0.0.0.0', server_ready_event=None, base_port=5000,db_path = "/home/sergio/proyecto/proy-sd/node_4.db", base_dir="/home/sergio/proyecto/proy-sd/tables"):
+    def __init__(self, id_node, port, nodes_info, node_ip='0.0.0.0', server_ready_event=None, base_port=5000):
         """
         Args:
             id_node: Identificador único del nodo (1, 2, 3...)
@@ -37,8 +37,15 @@ class Node:
         self.request_queue = []  # Cola de solicitudes pendientes
         self.in_critical_section = False  # Indica si el nodo está en la sección crítica
         self.replies_received = 0  # Contador de respuestas REPLY
-        db_path = Path(db_path).expanduser().resolve()
-        ensure_schema(db_path=db_path, data_dir=base_dir)
+
+        # Inicialización de la base de datos (utilizando rutas relativas).
+        # Se ingresará la db al mismo nivel que todo el proyecto.
+        db_dir = Path(__file__).resolve().parent
+        db_path = db_dir / self.db_name
+        db_path.touch(exist_ok=True)
+
+        db_seeds_dir = Path(__file__).resolve().parent / 'seeds'
+        ensure_schema(db_path=db_path, seeds_dir=db_seeds_dir)
         self.conn = sqlite3.connect(db_path, check_same_thread=False)
         self.is_master = False  # Indica si este nodo es el maestro
 

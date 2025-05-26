@@ -27,14 +27,17 @@ CREATE TABLE IF NOT EXISTS items (
     price       REAL    NOT NULL,
     stock   INTEGER NOT NULL,
     tax_rate    REAL    NOT NULL,
-    last_update TEXT    NOT NULL
+    last_update TEXT    NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
 CREATE TABLE IF NOT EXISTS branch_stock (
+    stock_entry_id   INTEGER PRIMARY KEY AUTOINCREMENT,
     branch_id   INTEGER,
     item_id     INTEGER,
     quantity    INTEGER,
     last_update TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     PRIMARY KEY(branch_id, item_id),
     FOREIGN KEY(item_id) REFERENCES items(id)
 );
@@ -44,14 +47,12 @@ CREATE TABLE IF NOT EXISTS clients (
     name        TEXT NOT NULL,
     phone       TEXT,
     email       TEXT,
-    last_update TEXT NOT NULL
+    last_update TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 """
 
-def ensure_schema(db_path: str | Path, *, data_dir="."):
-    db_path = Path(db_path).expanduser().resolve()
-    data_dir = Path(data_dir).expanduser().resolve()
-
+def ensure_schema(db_path: str | Path, *, seeds_dir: str | Path):
     conn = sqlite3.connect(db_path, check_same_thread=False)
     conn.executescript(SCHEMA_SQL)
 
@@ -60,11 +61,11 @@ def ensure_schema(db_path: str | Path, *, data_dir="."):
 
     # Importa CSV si la tabla está vacía, independientemente de que el .db exista
     if table_empty("items"):
-        _import_csv(conn, data_dir / "oxxo_products.csv", "items")
+        _import_csv(conn, seeds_dir / "oxxo_products.csv", "items")
     if table_empty("branch_stock"):
-        _import_csv(conn, data_dir / "branch_stock.csv", "branch_stock")
+        _import_csv(conn, seeds_dir / "branch_stock.csv", "branch_stock")
     if table_empty("clients"):
-        _import_csv(conn, data_dir / "clients.csv", "clients")
+        _import_csv(conn, seeds_dir / "clients.csv", "clients")
 
     conn.commit()
     conn.close()
