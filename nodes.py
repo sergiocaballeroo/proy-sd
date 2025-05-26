@@ -233,7 +233,17 @@ class Node:
                     name TEXT,
                     quantity INTEGER,
                     price REAL,
-                    last_updated TEXT
+                    last_update TEXT
+                )
+            """)
+            # Crear tabla de clientes
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS clients (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    name TEXT,
+                    email TEXT,
+                    phone TEXT,
+                    last_update TEXT
                 )
             """)
             conn.commit()
@@ -566,6 +576,85 @@ class Node:
             except Exception as e:
                 print(f"Error: {e}")
 
+    def add_client(self, name, email, phone):
+        """Agrega un cliente a la base de datos"""
+        try:
+            conn = sqlite3.connect(self.db_name)
+            cursor = conn.cursor()
+            cursor.execute("""
+                INSERT INTO clients (name, email, phone, last_update)
+                VALUES (?, ?, ?, ?)
+            """, (name, email, phone, datetime.now().isoformat()))
+            conn.commit()
+            conn.close()
+            print(f"[Node {self.id_node}] Client added: {name}")
+        except Exception as e:
+            print(f"[Node {self.id_node}] Error adding client: {e}")
+    
+
+    def view_clients(self):
+        """Muestra la lista de clientes"""
+        try:
+            conn = sqlite3.connect(self.db_name)
+            cursor = conn.cursor()
+            cursor.execute("SELECT id, name, email, phone, last_update FROM clients")
+            rows = cursor.fetchall()
+            conn.close()
+
+            print("\nClient List:")
+            print("=" * 40)
+            for row in rows:
+                print(f"ID: {row[0]}, Name: {row[1]}, Email: {row[2]}, Phone: {row[3]}, Last Updated: {row[4]}")
+        except Exception as e:
+            print(f"[Node {self.id_node}] Error reading clients: {e}")
+
+    def _add_client_ui(self):
+        """Interfaz para agregar un cliente"""
+        try:
+            name = input("Enter client name: ").strip()
+            email = input("Enter client email: ").strip()
+            phone = input("Enter client phone: ").strip()
+            self.add_client(name, email, phone)
+        except Exception as e:
+            print(f"Error: {e}")
+
+    def _view_clients(self):
+        """Interfaz para ver la lista de clientes"""
+        self.view_clients()
+
+    def two_phase_commit(self, prepare_message, commit_message, abort_message):
+        """Implementa el protocolo de 2PC"""
+        try:
+            # Fase 1: PREPARE
+            prepare_responses = 0
+            for port, ip in self.nodes_info.items():
+                if self.send_message({
+                    'destination': port,
+                    'content': json.dumps(prepare_message)
+                }):
+                    prepare_responses += 1
+
+            # Verificar si todos los nodos están listos
+            if prepare_responses < len(self.nodes_info):
+                print(f"[Node {self.id_node}] Not all nodes are ready. Aborting...")
+                for port, ip in self.nodes_info.items():
+                    self.send_message({
+                        'destination': port,
+                        'content': json.dumps(abort_message)
+                    })
+                return False
+
+            # Fase 2: COMMIT
+            for port, ip in self.nodes_info.items():
+                self.send_message({
+                    'destination': port,
+                    'content': json.dumps(commit_message)
+                })
+            print(f"[Node {self.id_node}] Commit successful.")
+            return True
+        except Exception as e:
+            print(f"[Node {self.id_node}] 2PC error: {e}")
+            return False
 
     def _send_message_ui(self):
         """Maneja el envío de mensajes desde la UI"""
@@ -792,3 +881,4 @@ if __name__ == "__main__":
     threading.Thread(target=node.start_server, daemon=True).start()
     server_ready.wait()
     node.user_interface()
+
