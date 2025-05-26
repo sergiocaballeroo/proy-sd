@@ -402,6 +402,50 @@ class Node:
                     })
                     print(f"[Node {self.id_node}] Sent capacity response for item {item_id} to Node {origin}.")
 
+                elif msg_type == 'CLIENT_UPDATE':
+                    # Handle client updates
+                    self.handle_client_update(content_data)
+                
+                elif msg_type == 'GET_CAPACITY':
+                    item_id = content_data.get('item_id')
+                    current_quantity = self.get_item_quantity(item_id)
+                    capacity_message = {
+                        'type': 'CAPACITY_RESPONSE',
+                        'item_id': item_id,
+                        'capacity': current_quantity,
+                        'origin': self.id_node,
+                        'timestamp': datetime.now().isoformat()
+                    }
+                    self.send_message({
+                        'destination': self.base_port + origin,
+                        'content': json.dumps(capacity_message)
+                    })
+                    print(f"[Node {self.id_node}] Sent capacity response for item {item_id} to Node {origin}.")
+
+                elif msg_type == 'CLIENT_UPDATE':
+                    # Handle client updates
+                    self.handle_client_update(content_data)
+                
+                elif msg_type == 'GET_CAPACITY':
+                    item_id = content_data.get('item_id')
+                    current_quantity = self.get_item_quantity(item_id)
+                    capacity_message = {
+                        'type': 'CAPACITY_RESPONSE',
+                        'item_id': item_id,
+                        'capacity': current_quantity,
+                        'origin': self.id_node,
+                        'timestamp': datetime.now().isoformat()
+                    }
+                    self.send_message({
+                        'destination': self.base_port + origin,
+                        'content': json.dumps(capacity_message)
+                    })
+                    print(f"[Node {self.id_node}] Sent capacity response for item {item_id} to Node {origin}.")
+
+                elif msg_type == 'CLIENT_UPDATE':
+                    # Handle client updates
+                    self.handle_client_update(content_data)
+
                 # Send ACK
                 if not str(content).startswith("ACK:"):
                     ack_msg = {
@@ -940,21 +984,156 @@ class Node:
         except Exception as e:
             print(f"[Node {self.id_node}] 2PC error: {e}")
             return False
-    def add_client(self, name, email, phone):
-        """Agrega un cliente a la base de datos"""
+    def add_client(self, name, phone, email):
+        """Agrega un cliente a la base de datos y propaga la actualización a otros nodos"""
         try:
             conn = sqlite3.connect(self.db_name)
             cursor = conn.cursor()
+            # Insertar cliente localmente
             cursor.execute("""
-                INSERT INTO clients (name, email, phone, last_update)
+                INSERT INTO clients (name, phone, email, last_update)
                 VALUES (?, ?, ?, ?)
-            """, (name, email, phone, datetime.now().isoformat()))
+            """, (name, phone, email, datetime.now().isoformat()))
             conn.commit()
+            client_id = cursor.lastrowid  # Obtener el ID del cliente recién agregado
             conn.close()
             print(f"[Node {self.id_node}] Client added: {name}")
+
+            # Propagar la actualización a otros nodos
+            self.propagate_client_update(client_id, name, phone, email)
+
         except Exception as e:
             print(f"[Node {self.id_node}] Error adding client: {e}")
     
+    def propagate_client_update(self, client_id, name, phone, email):
+        """Propaga la actualización de un cliente a los demás nodos"""
+        update_message = {
+            'type': 'CLIENT_UPDATE',
+            'client_id': client_id,
+            'name': name,
+            'phone': phone,
+            'email': email,
+            'last_update': datetime.now().isoformat(),
+            'origin': self.id_node
+        }
+
+        for port, ip in self.nodes_info.items():
+            try:
+                msg = {
+                    'destination': port,
+                    'content': json.dumps(update_message)
+                }
+                if self.send_message(msg):
+                    print(f"[Node {self.id_node}] Client update sent to Node {port - self.base_port}")
+            except Exception as e:
+                print(f"[Node {self.id_node}] Error sending client update to Node {port - self.base_port}: {e}")
+
+    def view_clients(self):
+        """Muestra la lista de clientes"""
+        try:
+            conn = sqlite3.connect(self.db_name)
+            cursor = conn.cursor()
+            cursor.execute("SELECT id, name, email, phone, last_update FROM clients")
+            rows = cursor.fetchall()
+            conn.close()
+
+            print("\nClient List:")
+            print("=" * 40)
+            for row in rows:
+                print(f"ID: {row[0]}, Name: {row[1]}, Email: {row[2]}, Phone: {row[3]}, Last Updated: {row[4]}")
+        except Exception as e:
+            print(f"[Node {self.id_node}] Error reading clients: {e}")
+
+    def _add_client_ui(self):
+        """Interfaz para agregar un cliente"""
+        try:
+            name = input("Enter client name: ").strip()
+            email = input("Enter client email: ").strip()
+            phone = input("Enter client phone: ").strip()
+            self.add_client(name, email, phone)
+        except Exception as e:
+            print(f"Error: {e}")
+
+    def _view_clients(self):
+        """Interfaz para ver la lista de clientes"""
+        self.view_clients()
+
+    def two_phase_commit(self, prepare_message, commit_message, abort_message):
+        """Implementa el protocolo de 2PC"""
+        try:
+            # Fase 1: PREPARE
+            prepare_responses = 0
+            for port, ip in self.nodes_info.items():
+                if self.send_message({
+                    'destination': port,
+                    'content': json.dumps(prepare_message)
+                }):
+                    prepare_responses += 1
+
+            # Verificar si todos los nodos están listos
+            if prepare_responses < len(self.nodes_info):
+                print(f"[Node {self.id_node}] Not all nodes are ready. Aborting...")
+                for port, ip in self.nodes_info.items():
+                    self.send_message({
+                        'destination': port,
+                        'content': json.dumps(abort_message)
+                    })
+                return False
+
+            # Fase 2: COMMIT
+            for port, ip in self.nodes_info.items():
+                self.send_message({
+                    'destination': port,
+                    'content': json.dumps(commit_message)
+                })
+            print(f"[Node {self.id_node}] Commit successful.")
+            return True
+        except Exception as e:
+            print(f"[Node {self.id_node}] 2PC error: {e}")
+            return False
+    def add_client(self, name, phone, email):
+        """Agrega un cliente a la base de datos y propaga la actualización a otros nodos"""
+        try:
+            conn = sqlite3.connect(self.db_name)
+            cursor = conn.cursor()
+            # Insertar cliente localmente
+            cursor.execute("""
+                INSERT INTO clients (name, phone, email, last_update)
+                VALUES (?, ?, ?, ?)
+            """, (name, phone, email, datetime.now().isoformat()))
+            conn.commit()
+            client_id = cursor.lastrowid  # Obtener el ID del cliente recién agregado
+            conn.close()
+            print(f"[Node {self.id_node}] Client added: {name}")
+
+            # Propagar la actualización a otros nodos
+            self.propagate_client_update(client_id, name, phone, email)
+
+        except Exception as e:
+            print(f"[Node {self.id_node}] Error adding client: {e}")
+    
+    def propagate_client_update(self, client_id, name, phone, email):
+        """Propaga la actualización de un cliente a los demás nodos"""
+        update_message = {
+            'type': 'CLIENT_UPDATE',
+            'client_id': client_id,
+            'name': name,
+            'phone': phone,
+            'email': email,
+            'last_update': datetime.now().isoformat(),
+            'origin': self.id_node
+        }
+
+        for port, ip in self.nodes_info.items():
+            try:
+                msg = {
+                    'destination': port,
+                    'content': json.dumps(update_message)
+                }
+                if self.send_message(msg):
+                    print(f"[Node {self.id_node}] Client update sent to Node {port - self.base_port}")
+            except Exception as e:
+                print(f"[Node {self.id_node}] Error sending client update to Node {port - self.base_port}: {e}")
 
     def view_clients(self):
         """Muestra la lista de clientes"""
@@ -1407,3 +1586,4 @@ if __name__ == "__main__":
     threading.Thread(target=node.start_server, daemon=True).start()
     server_ready.wait()
     node.user_interface()
+
