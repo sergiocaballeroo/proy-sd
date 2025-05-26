@@ -13,7 +13,7 @@ from pathlib import Path
 from db_utils import ensure_schema
 
 class Node:
-    def __init__(self, id_node, port, nodes_info, node_ip='0.0.0.0', server_ready_event=None, base_port=5000,db_path = "/home/sergio/proyecto/proy-sd/node_1.db", base_dir="/home/sergio/proyecto/proy-sd/tables"):
+    def __init__(self, id_node, port, nodes_info, node_ip='0.0.0.0', server_ready_event=None, base_port=5000,db_path = "/home/sergio/proyecto/proy-sd/node_4.db", base_dir="/home/sergio/proyecto/proy-sd/tables"):
         """
         Args:
             id_node: Identificador único del nodo (1, 2, 3...)
@@ -252,6 +252,7 @@ class Node:
         except Exception as e:
             print(f"[Node {self.id_node}] DB init error: {e}")
 
+
     def handle_connection(self, conn, addr):
         """Handles incoming connections"""
         with conn:
@@ -282,9 +283,14 @@ class Node:
                 elif isinstance(content, dict):
                     content_data = content
 
+                # Ensure content_data is a dictionary
+                if not isinstance(content_data, dict):
+                    print(f"[Node {self.id_node}] Invalid content format: {content_data}")
+                    return
+
                 # Extract message details
-                msg_type = content_data.get('type') if content_data else None
-                origin = content_data.get('origin') if content_data else None
+                msg_type = content_data.get('type')
+                origin = content_data.get('origin')
 
                 # Store parsed message (with content as dict)
                 self.messages.append(message)
@@ -292,7 +298,7 @@ class Node:
 
                 # Print formatted message
                 hour = datetime.fromisoformat(message['timestamp']).strftime("%H:%M:%S")
-                print(f"[Node {self.id_node}] Received from {message['origin']} at {hour}: {content_data}")
+                print(f"[Node {self.id_node}] Received from {origin} at {hour}: {content_data}")
 
                 # Handle message types
                 if msg_type == 'COORDINATOR':
@@ -315,16 +321,20 @@ class Node:
                         )
                         print(f"[Node {self.id_node}] Inventory updated for item {item_id}")
 
+                elif msg_type == 'CLIENT_UPDATE':
+                    # Handle client updates
+                    self.handle_client_update(content_data)
+
                 # Send ACK
                 if not str(content).startswith("ACK:"):
                     ack_msg = {
                         'origin': self.id_node,
-                        'destination': self.base_port + message['origin'],
+                        'destination': self.base_port + origin,
                         'content': f"ACK: {json.dumps(content_data)}",
                         'timestamp': datetime.now().isoformat()
                     }
                     if self.send_message(ack_msg):
-                        print(f"[Node {self.id_node}] ACK sent to {message['origin']}")
+                        print(f"[Node {self.id_node}] ACK sent to {origin}")
                     else:
                         print(f"[Node {self.id_node}] Failed to send ACK")
 
@@ -332,6 +342,44 @@ class Node:
                 print(f"[Node {self.id_node}] Message format error: Missing key {ke}")
             except Exception as e:
                 print(f"[Node {self.id_node}] Critical error: {str(e)}")
+
+    def handle_client_update(self, message):
+        """Maneja una actualización de cliente recibida de otro nodo"""
+        try:
+            client_id = message['client_id']
+            name = message['name']
+            email = message['email']  # Corregido: ahora se asigna correctamente
+            phone = message['phone']  # Corregido: ahora se asigna correctamente
+            last_update = message['last_update']
+
+            conn = sqlite3.connect(self.db_name)
+            cursor = conn.cursor()
+
+            # Verificar si el cliente ya existe
+            cursor.execute("SELECT id FROM clients WHERE id = ?", (client_id,))
+            result = cursor.fetchone()
+
+            if result:
+                # Actualizar cliente existente
+                cursor.execute("""
+                    UPDATE clients
+                    SET name = ?, phone = ?, email = ?, last_update = ?
+                    WHERE id = ?
+                """, (name, phone, email, last_update, client_id))
+                print(f"[Node {self.id_node}] Client {client_id} updated.")
+            else:
+                # Insertar nuevo cliente
+                cursor.execute("""
+                    INSERT INTO clients (id, name, phone, email, last_update)
+                    VALUES (?, ?, ?, ?, ?)
+                """, (client_id, name, phone, email, last_update))
+                print(f"[Node {self.id_node}] Client {client_id} added.")
+
+            conn.commit()
+            conn.close()
+
+        except Exception as e:
+            print(f"[Node {self.id_node}] Error handling client update: {e}")
 
     def handle_coordinator_message(self, message):
         """Maneja mensajes COORDINATOR (nodo maestro)"""
@@ -576,21 +624,49 @@ class Node:
             except Exception as e:
                 print(f"Error: {e}")
 
-    def add_client(self, name, email, phone):
-        """Agrega un cliente a la base de datos"""
+    def add_client(self, name, phone, email):
+        """Agrega un cliente a la base de datos y propaga la actualización a otros nodos"""
         try:
             conn = sqlite3.connect(self.db_name)
             cursor = conn.cursor()
+            # Insertar cliente localmente
             cursor.execute("""
-                INSERT INTO clients (name, email, phone, last_update)
+                INSERT INTO clients (name, phone, email, last_update)
                 VALUES (?, ?, ?, ?)
-            """, (name, email, phone, datetime.now().isoformat()))
+            """, (name, phone, email, datetime.now().isoformat()))
             conn.commit()
+            client_id = cursor.lastrowid  # Obtener el ID del cliente recién agregado
             conn.close()
             print(f"[Node {self.id_node}] Client added: {name}")
+
+            # Propagar la actualización a otros nodos
+            self.propagate_client_update(client_id, name, phone, email)
+
         except Exception as e:
             print(f"[Node {self.id_node}] Error adding client: {e}")
     
+    def propagate_client_update(self, client_id, name, phone, email):
+        """Propaga la actualización de un cliente a los demás nodos"""
+        update_message = {
+            'type': 'CLIENT_UPDATE',
+            'client_id': client_id,
+            'name': name,
+            'phone': phone,
+            'email': email,
+            'last_update': datetime.now().isoformat(),
+            'origin': self.id_node
+        }
+
+        for port, ip in self.nodes_info.items():
+            try:
+                msg = {
+                    'destination': port,
+                    'content': json.dumps(update_message)
+                }
+                if self.send_message(msg):
+                    print(f"[Node {self.id_node}] Client update sent to Node {port - self.base_port}")
+            except Exception as e:
+                print(f"[Node {self.id_node}] Error sending client update to Node {port - self.base_port}: {e}")
 
     def view_clients(self):
         """Muestra la lista de clientes"""
@@ -881,3 +957,4 @@ if __name__ == "__main__":
     threading.Thread(target=node.start_server, daemon=True).start()
     server_ready.wait()
     node.user_interface()
+
