@@ -239,35 +239,35 @@ class Node:
         Envía un mensaje a otro nodo
         message_dict: Diccionario con la estructura {destination: int, content: JSON}
         """
+        node_dest_id = message_dict['destination']
+        port_dest = self.base_port + node_dest_id
+        if node_dest_id == self.id_node:
+            print(f"[Nodo {self.id_node}] Advertencia: No se puede enviar un mensaje a si mismo.")
+            return False
+
+        dest_ip = self.neighbours.get(node_dest_id)
+        if not dest_ip:
+            print(f"[Nodo {self.id_node}] Error: Destino desconocido en puerto {node_dest_id}")
+            return False
         try:
-            dest_port = message_dict['destination']
-            if dest_port == self.port:
-                print(f"[Nodo {self.id_node}] Advertencia: No se puede enviar un mensaje a si mismo.")
-                return False
-
-            dest_ip = self.neighbours.get(dest_port)
-            if not dest_ip:
-                print(f"[Nodo {self.id_node}] Error: Destino desconocido en puerto {dest_port}")
-                return False
-
             with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
                 s.settimeout(5.0)
 
-                s.connect((dest_ip, dest_port))
+                s.connect((dest_ip, port_dest))
 
                 message_dict['origin'] = self.id_node
                 message_dict['timestamp'] = datetime.now().isoformat()
 
                 s.sendall(json.dumps(message_dict).encode('utf-8'))
                 self.messages.append(message_dict)
-                print(f"[Nodo {self.id_node}] Enviado a {dest_port}: {message_dict}")
+                print(f"[Nodo {self.id_node}] Enviado a {port_dest}: {message_dict}")
                 return True
 
         except ConnectionRefusedError as e:
-            print(f"[Nodo {self.id_node}] Error: Nodo {dest_port - self.base_port} no disponible")
+            print(f"[Nodo {self.id_node}] Error: Nodo {node_dest_id} no disponible")
             print(e)
         except socket.timeout:
-            print(f"[Nodo {self.id_node}] Error: Connection timeout with node {dest_port - self.base_port}")
+            print(f"[Nodo {self.id_node}] Error: Connection timeout with node {port_dest}")
         except Exception as e:
             print(f"[Nodo {self.id_node}] Error en envio: {e}")
         
