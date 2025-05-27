@@ -105,7 +105,7 @@ class Node:
 
                 NODE_IPS = {}
                 for node_id in curr_neighbours:
-                    NODE_IPS[self.base_port + node_id] = neighbours_available.get(node_id)
+                    NODE_IPS[node_id] = neighbours_available.get(node_id)
                 self.neighbours = NODE_IPS
             else:
                 print("✅ Lista de nodos sin cambios.", self.neighbours)
@@ -247,7 +247,7 @@ class Node:
 
         dest_ip = self.neighbours.get(node_dest_id)
         if not dest_ip:
-            print(f"[Nodo {self.id_node}] Error: Destino desconocido en puerto {node_dest_id}")
+            print(f"[Nodo {self.id_node}] Error: Destino desconocido en puerto {port_dest}")
             return False
         try:
             with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
