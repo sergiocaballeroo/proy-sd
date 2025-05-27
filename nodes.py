@@ -118,7 +118,7 @@ class Node:
     def check_master(self):
         # Si existe el maestro, verificar si sigue activo.
         # Si no hay maestro o el maestro se detuvo, identificar nodos con IDs mayores
-        higher_nodes = [node_id for node_id in self.neighbours.keys() if node_id > self.port]
+        higher_nodes = [node_id for node_id in self.neighbours.keys() if node_id > self.id_node]
         if not self.master:
             print(f'🚨 No hay referencia de nodo maestro. ({self.master})')
             self.start_election(higher_nodes)
