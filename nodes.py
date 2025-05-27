@@ -623,98 +623,17 @@ class Node:
     #####################
     # PRODUCTOS / ITEMS
     #####################
-    def show_products(self):
-        products_service.show_products(self)
+    def _show_products(self):
+        products.show_products(self)
 
-    def create_product_ui(self):
-        try:
-            name = input("Nombre del producto: ")
-            category = input("Categoria: ")
-            price = float(input("Precio unitario: "))
-            stock = int(input("Unidades disponibles: "))
+    def _create_product_ui(self):
+        products.create_product_ui(self)
 
-            product_data = { 'name': name, 'category': category, 'price': price, 'stock': stock}
-            products.create_product(self, product_data)
-        except ValueError:
-            print("Entrada incorrecta. Por favor intenta de nuevo.")
-
-    def update_product_ui(self):
-        try:
-            product_id = input("ID del producto a actualizar: ")
-            name = input("Nombre del producto: ")
-            category = input("Categoria: ")
-            price = float(input("Precio unitario: "))
-
-            product_data = { 'name': name, 'category': category, 'price': price, 'id': product_id}
-            products.update_product(self, product_data)
-        except ValueError:
-            print("Entrada incorrecta. Por favor intenta de nuevo.")
-
-    def distribute_items(self, item_id, total_quantity):
-        """Distribuye automáticamente los artículos entre las sucursales"""
-        if not self.is_master:
-            print(f"[Nodo {self.id_node}] Error: Solo el nodo maestro puede distribuir articulos.")
-            return
-
-        print(f"[Nodo {self.id_node}] Comenzando distribuicion del articulo {item_id} con un total de {total_quantity}.")
-
-        # Obtener la capacidad actual de cada nodo
-        capacities = {}
-        for port, ip in self.nodes_info.items():
-            try:
-                message = {
-                    'type': 'GET_CAPACITY',
-                    'item_id': item_id,
-                    'origin': self.id_node,
-                    'timestamp': datetime.now().isoformat()
-                }
-                if self.send_message({'destination': port, 'content': json.dumps(message)}):
-                    print(f"[Nodo {self.id_node}] Capacidad solicitada desde el Nodo {port - self.base_port}")
-            except Exception as e:
-                print(f"[Nodo {self.id_node}] Error solicitando capacidad desde el Nodo {port - self.base_port}: {e}")
-
-        # Simular capacidades (en un entorno real, esto se recibiría como respuesta)
-        capacities = {port: 100 for port in self.nodes_info.keys()}  # Ejemplo: cada nodo tiene capacidad de 100
-
-        # Calcular la distribución equitativa
-        total_nodes = len(capacities)
-        base_quantity = total_quantity // total_nodes
-        remainder = total_quantity % total_nodes
-
-        # Distribuir los artículos
-        for port, capacity in capacities.items():
-            quantity_to_send = base_quantity + (1 if remainder > 0 else 0)
-            if remainder > 0:
-                remainder -= 1
-
-            # Enviar actualización de inventario al nodo
-            update_message = {
-                'type': 'INVENTORY_UPDATE',
-                'item_id': item_id,
-                'new_quantity': quantity_to_send,
-                'origin': self.id_node,
-                'timestamp': datetime.now().isoformat()
-            }
-            try:
-                if self.send_message({'destination': port, 'content': json.dumps(update_message)}):
-                    print(f"[Nodo {self.id_node}] Se enviaron {quantity_to_send} unidades del articulo {item_id} al Nodo {port - self.base_port}")
-            except Exception as e:
-                print(f"[Nodo {self.id_node}] Error enviando actualizacion del inventario al nodo {port - self.base_port}: {e}")
-
-        print(f"[Nodo {self.id_node}] Resumen de la distribuicion:")
-        for port, quantity in capacities.items():
-            print(f"  - Nodo {port - self.base_port}: {quantity} unidades")
-
-        print(f"[Nodo {self.id_node}] Distribuicion del articulo {item_id} completada.")
+    def _update_product_ui(self):
+        products.update_product_ui(self)
 
     def _distribute_items_ui(self):
-        """Interfaz para distribuir artículos"""
-        try:
-            item_id = int(input("Ingresa el ID del articulo a distribuir: "))
-            total_quantity = int(input("Cantidad de unidades a distribuir: "))
-            self.distribute_items(item_id, total_quantity)
-        except ValueError:
-            print("Entrada invalida. Por favor ingresa solo valores numericos.")
+        products.distribute_items_ui(self)
 
     ###############
     # INVENTARIOS
@@ -895,7 +814,7 @@ class Node:
             print("Entrada invalida. Por favor ingresa valores numericos.")
 
     #Nuevo metodo Guia de producto
-    def show_purchases(self):
+    def _show_purchases(self):
         """Muestra lista de compras aplicadas en la sucursal."""
         try:
             conn = sqlite3.connect(self.db_name)
@@ -961,15 +880,15 @@ class Node:
                 elif choice == "2":
                     self._add_client_ui()
                 elif choice == "3":
-                    self.show_products()
+                    self._show_products()
                 elif choice == "4":
-                    self.create_product_ui()
+                    self._create_product_ui()
                 elif choice == "5":
-                    self.update_product_ui()
+                    self._update_product_ui()
                 elif choice == "6":
-                    self.show_inventory()
+                    self._show_inventory()
                 elif choice == "7":
-                    self.show_purchases()
+                    self._show_purchases()
                 elif choice == "8":
                     self._create_purchase_ui()
                 # Opciones extras
@@ -978,17 +897,17 @@ class Node:
                 elif choice == "401":
                     self._show_history()
                 elif choice == "402":
-                    self.export_history()
+                    self._export_history()
                 elif choice == "403":
                     self._show_db_messages()
                 elif choice == "404":
                     self._update_inventory_ui()
                 elif choice == "405":
-                    self.user_guide()
+                    self._user_guide()
                 elif choice == "406":
-                    self.sync_inventory()
+                    self._sync_inventory()
                 elif choice == "407":
-                    self.start_election()  # Llama al método para iniciar la elección
+                    self._start_election()  # Llama al método para iniciar la elección
                 elif choice == "408":
                     self._distribute_items_ui()  # Llama al método para distribuir artículos
                 elif choice == "99":
