@@ -769,7 +769,6 @@ class Node:
 # Diccionario inicial de los nodos esperados en el sistema.
 # Clave: ID de nodo, Valor: IP estatica del nodo.
 DEFAULT_IPS = [
-    '192.168.100.100',
     '192.168.100.61',
     '192.168.100.62',
     '192.168.100.63',
