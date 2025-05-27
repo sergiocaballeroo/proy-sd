@@ -40,3 +40,7 @@ def is_valid_json(text: str):
     return True
   except json.JSONDecodeError:
     return False
+
+def divide_list(lista, num_parts):
+  k, m = divmod(len(lista), num_parts)
+  return [lista[i * k + min(i, m):(i + 1) * k + min(i + 1, m)] for i in range(num_parts)]

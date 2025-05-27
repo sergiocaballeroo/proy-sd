@@ -10,7 +10,7 @@ from datetime import datetime
 import sqlite3
 import time
 from pathlib import Path
-from db_utils import ensure_schema
+from db_utils import ensure_schema, migrate_all
 import utils
 from modules import products, clients, inventories, purchases
 
@@ -18,7 +18,9 @@ class Node:
     def __init__(
             self, id_node: int, port: int, all_nodes: dict, static_ip: str,
             node_ip='0.0.0.0', base_port=5000,
-            server_ready_event=None, neighbours_ready_event=None
+            neighbours_ready_event=None,
+            sync_data_ready_event=None,
+            server_ready_event=None, 
         ):
         """
         Args:
@@ -47,16 +49,20 @@ class Node:
         # Inicialización de la base de datos (utilizando rutas relativas).
         # Se ingresará la db al mismo nivel que todo el proyecto.
         db_dir = Path(__file__).resolve().parent
-        db_path = db_dir / self.db_name
-        db_path.touch(exist_ok=True)
+        self.db_path = db_dir / self.db_name
+        self.db_path.touch(exist_ok=True)
+        # Inicializacion de la base de datos (solo creacion de tablas / sin poblar)
+        ensure_schema(db_path=self.db_path)
 
-        db_seeds_dir = Path(__file__).resolve().parent / 'seeds'
-        ensure_schema(db_path=db_path, seeds_dir=db_seeds_dir)
-        self.conn = sqlite3.connect(db_path, check_same_thread=False)
+        self.db_seeds_dir = Path(__file__).resolve().parent / 'seeds'
+
+        self.conn = sqlite3.connect(self.db_path, check_same_thread=False)
         self.is_master = False  # Debe existir al menos una eleccion para encontrar el maestro.
         self.master = None  # Al inicar el nodo, no tiene referencia de quien es el maestro.
+        self.on_sync = False
 
         self.neighbours_ready_event = neighbours_ready_event
+        self.sync_data_ready_event = sync_data_ready_event
         self.server_ready_event = server_ready_event
 
     ########################
@@ -119,9 +125,9 @@ class Node:
         # Si existe el maestro, verificar si sigue activo.
         # Si no hay maestro o el maestro se detuvo, identificar nodos con IDs mayores
         higher_nodes = [node_id for node_id in self.neighbours.keys() if node_id > self.id_node]
-        if not self.master:
+        if not self.master and not higher_nodes:
             print(f'🚨 No hay referencia de nodo maestro. ({self.master})')
-            self.start_election(higher_nodes)
+            self.become_master()
         elif not higher_nodes and self.master == self.id_node:
             print(f'🗿 Te mantienes como coordinador. ({self.master})')
         elif higher_nodes and self.master == self.id_node:
@@ -150,7 +156,7 @@ class Node:
                 try:
                     message = json.loads(data)
                 except json.JSONDecodeError:
-                    print(f"[Nodo {self.id_node}] Invalid JSON message: {data}")
+                    print(f"\n[Nodo {self.id_node}] Invalid JSON message: {data}")
                     return
 
                 # Parse content if it's a JSON string
@@ -159,7 +165,7 @@ class Node:
 
                 # Ensure content_data is a dictionary
                 if not isinstance(message, dict):
-                    print(f"[Nodo {self.id_node}] Invalid content format: {message}")
+                    print(f"\n[Nodo {self.id_node}] Invalid content format: {message}")
                     return
 
                 # Extract message details
@@ -172,7 +178,7 @@ class Node:
 
                 # Print formatted message
                 hour = datetime.fromisoformat(message['timestamp']).strftime("%H:%M:%S")
-                print(f"[Nodo {self.id_node}] Recibido de {origin} a las {hour}: {message}")
+                print(f"\n[Nodo {self.id_node}] Recibido de {origin} a las {hour}: {message}")
 
                 # Handle message types
                 if msg_type == 'COORDINATOR':
@@ -191,12 +197,10 @@ class Node:
                             new_quantity - self._get_item_quantity(item_id),
                             propagate=False
                         )
-                        print(f"[Nodo {self.id_node}] Inventario actualizado para el item {item_id}")
-
+                        print(f"\n[Nodo {self.id_node}] Inventario actualizado para el item {item_id}")
                 elif msg_type == 'CLIENT_UPDATE':
                     # Handle client updates
                     clients.handle_client_update(self, message)
-                
                 elif msg_type == 'GET_CAPACITY':
                     item_id = message.get('content').get('item_id')
                     current_quantity = self._get_item_quantity(item_id)
@@ -211,7 +215,7 @@ class Node:
                         'content': json.dumps(capacity_message),
                         'timestamp': datetime.now().isoformat(),
                     })
-                    print(f"[Nodo {self.id_node}] Se envio stock actual del articulo {item_id} al Nodo {origin}.")
+                    print(f"\n[Nodo {self.id_node}] Se envio stock actual del articulo {item_id} al Nodo {origin}.")
                 elif msg_type == 'PLAIN_TEXT':
                     ack_msg = {
                         'type': 'ACK',
@@ -225,7 +229,21 @@ class Node:
                     else:
                         print(f"[Nodo {self.id_node}] Error enviando ACK")
                 elif msg_type == 'ACK':
-                    print(f"[Nodo {self.id_node}] ACK recibido desde {message.get('origin')}")
+                    print(f"\n[Nodo {self.id_node}] ACK recibido desde {message.get('origin')}")
+                elif msg_type == 'PING':
+                    print(f"\n[Nodo {self.id_node}] PING recibido desde {message.get('origin')}")
+                    ack_msg = {
+                        'type': 'PING_ACK',
+                        'origin': self.id_node,
+                        'destination': origin,
+                        'timestamp': datetime.now().isoformat(),
+                    }
+                    if self.send_message(ack_msg):
+                        print(f"\n[Nodo {self.id_node}] PING_ACK enviado a {origin}")
+                    else:
+                        print(f"\n[Nodo {self.id_node}] Error enviando PING_ACK")
+                elif msg_type == 'PING_ACK':
+                    print(f"\n[Nodo {self.id_node}] PING confirmado con {message.get('origin')}")
 
             except KeyError as ke:
                 print(f"[Nodo {self.id_node}] Message format error: Missing key {ke}")
@@ -584,6 +602,8 @@ class Node:
         coordinator_message = {
             'clock': self.clock,
         }
+
+        self.on_sync = True  # Ya que se volvio coordinador, debe sincronizar las tablas.
         for node_id in self.neighbours.keys():
             self.send_message({
                 'type': 'COORDINATOR',
@@ -592,6 +612,15 @@ class Node:
                 'content': json.dumps(coordinator_message),
                 'timestamp': datetime.now().isoformat(),
             })
+
+        self.sync_data()
+        
+    def sync_data(self):
+        print(f"\n[Nodo {self.id_node}] 🌀 SINRONIZANDO BASE DE DATOS")
+        threading.Thread(target=migrate_all(self), daemon=True).start()
+        sync_data_ready.wait()
+        self.on_sync = False
+
 
     def announce_master(self):
         """Anuncia a todos los nodos que este nodo es el nuevo maestro"""
@@ -712,8 +741,7 @@ class Node:
                 print("404. Actualizar inventario")
                 print("405. FIX: Show Product guide")
                 print("406. FIX: Sync inventory with other nodes")
-                print("407. FIX: Start master election")
-                print("408. FIX: Distribute items")
+                print("407. FIX: Distribute items")
                 print("\nSALIR")
                 print("=" * 40)
                 print("99. Salir \n")
@@ -753,8 +781,6 @@ class Node:
                 elif choice == "406":
                     self._sync_inventory()
                 elif choice == "407":
-                    self._start_election()  # Llama al método para iniciar la elección
-                elif choice == "408":
                     self._distribute_items_ui()  # Llama al método para distribuir artículos
                 elif choice == "99":
                     print("Saliendo...")
@@ -769,7 +795,6 @@ class Node:
 # Diccionario inicial de los nodos esperados en el sistema.
 # Clave: ID de nodo, Valor: IP estatica del nodo.
 DEFAULT_IPS = [
-    '192.168.100.100',
     '192.168.100.61',
     '192.168.100.62',
     '192.168.100.63',
@@ -785,12 +810,14 @@ if __name__ == "__main__":
 
     neighbours_ready = threading.Event()
     server_ready = threading.Event()
+    sync_data_ready = threading.Event()
     node = Node(
         id_node = NODE_ID,
         static_ip=current_ip,
         port = 5000 + NODE_ID,
         all_nodes = {int(ip.split('.')[-1]): ip for ip in DEFAULT_IPS},
         neighbours_ready_event = neighbours_ready,
+        sync_data_ready_event= sync_data_ready,
         server_ready_event = server_ready,
     )
 

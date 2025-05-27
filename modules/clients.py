@@ -105,3 +105,8 @@ def handle_client_update(node, message):
     conn.close()
   except Exception as e:
     print(f"[Nodo {node.id_node}] Error durante actualizacion de cliente: {e}")
+
+def distribute_clients(node):
+  # Este método solo lo puede ejecutar el nodo maestro.
+  if not node.is_master:
+    return
