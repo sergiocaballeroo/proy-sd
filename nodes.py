@@ -15,7 +15,7 @@ import utils
 from modules import products, clients, inventories, purchases
 
 class Node:
-    def __init__(self, id_node, port, nodes_info, node_ip='0.0.0.0', server_ready_event=None, base_port=5000):
+    def __init__(self, id_node: int, port: int, nodes_info: dict, node_ip='0.0.0.0', server_ready_event=None, base_port=5000):
         """
         Args:
             id_node: Identificador único del nodo (1, 2, 3...)
@@ -79,7 +79,7 @@ class Node:
         """Envía un mensaje a otro nodo"""
         try:
 
-            dest_port = message_dict['destination']
+            dest_port = message_dict['destination'] + self.base_port
             if dest_port == self.port:
                 print(f"[Nodo {self.id_node}] Advertencia: No se puede enviar un mensaje a si mismo.")
                 return False
@@ -92,9 +92,7 @@ class Node:
             with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
                 s.settimeout(5.0)
 
-                print('Connecting...', (dest_ip, dest_port))
                 s.connect((dest_ip, dest_port))
-                print('Connected!')
 
                 message_dict['origin'] = self.id_node
                 message_dict['timestamp'] = datetime.now().isoformat()
@@ -120,10 +118,9 @@ class Node:
         print("\nNodos disponibles (IDs):", available_ids)
         try:
             dest_node_id = int(input("Nodo destino (ID): "))
-            dest_port = self.base_port + dest_node_id
             
-            if dest_port not in self.nodes_info:
-                print("Error: ID de nodo destino invalido.")
+            if dest_node_id not in available_ids:
+                print("Error: ID de nodo invalido.")
                 return
 
             content = input("Mensaje: ").strip()
@@ -132,7 +129,7 @@ class Node:
                 return
 
             message: dict = {
-                'destination': dest_port,
+                'destination': dest_node_id,
                 'content': content
             }
             self.send_message(message)
@@ -338,7 +335,7 @@ class Node:
         self.current_master = new_master_id
 
     def handle_connection(self, conn, addr):
-        """Handles incoming connections"""
+        """Maneja cualquier mensaje de entrada."""
         with conn:
             try:
                 # Receive and decode data
@@ -349,7 +346,7 @@ class Node:
                 # Parse main message
                 try:
                     message = json.loads(data)
-                    print('Message: ', message)
+                    print('\nMessage: ', message)
                 except json.JSONDecodeError:
                     print(f"[Nodo {self.id_node}] Invalid JSON message: {data}")
                     return
@@ -368,6 +365,7 @@ class Node:
                 elif isinstance(content, dict):
                     content_data = content
 
+                print(content_data)
                 # Ensure content_data is a dictionary
                 if not isinstance(content_data, dict):
                     print(f"[Nodo {self.id_node}] Invalid content format: {content_data}")
@@ -756,8 +754,9 @@ if __name__ == "__main__":
 
     NODE_IPS = {}
     for node_ip in neighbours_available:
-        NODE_IPS[node_ip.split('.')[-1]] = node_ip
+        NODE_IPS[BASE_PORT + int(node_ip.split('.')[-1])] = node_ip
 
+    print(NODE_IPS)
     server_ready = threading.Event()
     node = Node(
         id_node=NODE_ID,
