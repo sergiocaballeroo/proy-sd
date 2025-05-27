@@ -61,6 +61,7 @@ class Node:
     # ACCIONES NODO LOCAL
     ########################
 
+    # Servicios en segundo plano (deamons)
     def start_server(self):
         """Inicia el servidor TCP para recibir mensajes"""
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
@@ -109,266 +110,10 @@ class Node:
                 print("✅ Lista de nodos sin cambios.", self.neighbours)
             time.sleep(interval)
 
-    def send_message(self, message_dict: dict):
-        """Envía un mensaje a otro nodo"""
-        try:
-
-            dest_port = message_dict['destination'] + self.base_port
-            if dest_port == self.port:
-                print(f"[Nodo {self.id_node}] Advertencia: No se puede enviar un mensaje a si mismo.")
-                return False
-
-            dest_ip = self.nodes_info.get(dest_port)
-            if not dest_ip:
-                print(f"[Nodo {self.id_node}] Error: Destino desconocido en puerto {dest_port}")
-                return False
-
-            with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-                s.settimeout(5.0)
-
-                s.connect((dest_ip, dest_port))
-
-                message_dict['origin'] = self.id_node
-                message_dict['timestamp'] = datetime.now().isoformat()
-
-                s.sendall(json.dumps(message_dict).encode('utf-8'))
-                self.messages.append(message_dict)
-                print(f"[Nodo {self.id_node}] Enviado a {dest_port}: {message_dict}")
-                return True
-
-        except ConnectionRefusedError as e:
-            print(f"[Nodo {self.id_node}] Error: Nodo {dest_port - self.base_port} no disponible")
-            print(e)
-        except socket.timeout:
-            print(f"[Nodo {self.id_node}] Error: Connection timeout with node {dest_port - self.base_port}")
-        except Exception as e:
-            print(f"[Nodo {self.id_node}] Error en envio: {e}")
-        
-        return False
-    
-    def _send_message_ui(self):
-        """Maneja el envío de mensajes desde la UI"""
-        available_ids = [p - self.base_port for p in self.nodes_info.keys()]
-        print("\nNodos disponibles (IDs):", available_ids)
-        try:
-            dest_node_id = int(input("Nodo destino (ID): "))
-            
-            if dest_node_id not in available_ids:
-                print("Error: ID de nodo invalido.")
-                return
-
-            content = input("Mensaje: ").strip()
-            if not content:
-                print("Error: El mensaje no puede estar vacio.")
-                return
-
-            message: dict = {
-                'type': 'PLAIN_TEXT',
-                'destination': dest_node_id,
-                'content': content
-            }
-            self.send_message(message)
-
-        except ValueError:
-            print("Error: Por favor ingresa un ID de nodo valido.")
-
-    def handle_request(self, message):
-        """Maneja un mensaje REQUEST recibido"""
-        self.synchronize_clock(message['clock'])
-        origin = message['origin']
-
-        # Responder con REPLY si no estoy en la sección crítica o si mi solicitud tiene menor prioridad
-        if not self.in_critical_section or (self.clock, self.id_node) > (message['clock'], origin):
-            reply_message = {
-                'type': 'REPLY',
-                'clock': self.clock,
-                'origin': self.id_node,
-                'timestamp': datetime.now().isoformat()
-            }
-            self.send_message(self, {
-                'destination': self.base_port + origin,
-                'content': json.dumps(reply_message)
-            })
-            print(f"[Nodo {self.id_node}] RESPUESTA enviada al nodo {origin}.")
-        else:
-            # Agregar la solicitud a la cola
-            self.request_queue.append(message)
-
-    def handle_reply(self, message):
-        """Maneja un mensaje REPLY recibido"""
-        self.synchronize_clock(message['clock'])
-        self.replies_received += 1
-        print(f"[Nodo {self.id_node}] RESPUESTA recibida desde nodo {message['origin']}. Todas las respuestas: {self.replies_received}")
-
-    def increment_clock(self):
-        """Incrementa el reloj lógico"""
-        self.clock += 1
-
-    def _show_history(self):
-        """Muestra el historial de mensajes desde la base de datos"""
-        try:
-            conn = sqlite3.connect(self.db_name)
-            cursor = conn.cursor()
-            cursor.execute("SELECT origin, destination, content, timestamp FROM messages ORDER BY id ASC")
-            rows = cursor.fetchall()
-            conn.close()
-
-            print("\nHistorial de mensajes (desde BD):")
-            print("=" * 40)
-            for i, (origin, dest, content, ts) in enumerate(rows, 1):
-                print(f"{i}. [{ts}] {origin} -> {dest - self.base_port}: {content}")
-
-        except Exception as e:
-            print(f"[Nodo {self.id_node}] Error leyendo historial: {e}")
-
-    def _save_message_to_db(self, msg):
-        """Guarda un mensaje en la base de datos"""
-        try:
-            conn = sqlite3.connect(self.db_name)
-            cursor = conn.cursor()
-
-            # Convertir el contenido del mensaje a JSON si es un diccionario
-            content = msg.get('content')
-            if isinstance(content, dict):
-                content = json.dumps(content)
-
-            cursor.execute("""
-                INSERT INTO messages (origin, destination, content, timestamp)
-                VALUES (?, ?, ?, ?)
-            """, (
-                msg.get('origin', self.id_node),
-                msg.get('destination'),
-                content,
-                msg.get('timestamp', datetime.now().isoformat())
-            ))
-            conn.commit()
-            conn.close()
-        except Exception as e:
-            print(f"[Nodo {self.id_node}] Error durante insercion en la BD: {e}")
-
-    def _show_history(self):
-        """Muestra el historial de mensajes"""
-        print("\nHistorial de mensajes:")
-        print("=" * 40)
-        for i, msg in enumerate(self.messages, 1):
-            direction = f"{msg.get('origin', '?')} -> {msg['destination'] - self.base_port}"
-            print(f"{i}. [{msg['timestamp']}] {direction}: {msg['content']}")
-
-    def export_history(self):
-        """Exporta el historial a JSON"""
-        filename = f"node_{self.id_node}_history.json"
-        try:
-            with open(filename, 'w', encoding='utf-8') as f:
-                json.dump({
-                    'node_id': self.id_node,
-                    'timestamp': datetime.now().isoformat(),
-                    'messages': self.messages
-                }, f, indent=2, ensure_ascii=False)
-            print(f"Historial exportado en {filename}")
-        except Exception as e:
-            print(f"Error durante exportacion: {e}")
-
-    def _show_db_messages(self):
-        """Muestra los mensajes guardados en la base de datos"""
-        try:
-            conn = sqlite3.connect(self.db_name)
-            cursor = conn.cursor()
-            cursor.execute("SELECT origin, destination, content, timestamp FROM messages")
-            rows = cursor.fetchall()
-            conn.close()
-
-            print("\nMensajes en la Base de Datos:")
-            for i, row in enumerate(rows, 1):
-                origin, destination, content, timestamp = row
-                print(f"{i}. [{timestamp}] {origin} -> {destination - self.base_port}: {content}")
-        except Exception as e:
-            print(f"[Nodo {self.id_node}] Error leyendo mensajes en la BD: {e}")
-
     ########################
     # ACCIONES ENTRE NODOS
     ########################
-    def synchronize_clock(self, received_clock):
-        """Sincroniza el reloj lógico con un valor recibido"""
-        self.clock = max(self.clock, received_clock) + 1
-
-    def request_critical_section(self, timeout=5):
-        """Solicita acceso a la sección crítica con un timeout"""
-        self.increment_clock()
-        self.in_critical_section = True
-        self.replies_received = 0
-        self.pending_replies = len(self.nodes_info)  # Número de nodos de los que se espera respuesta
-
-        # Enviar mensaje REQUEST a todos los nodos
-        for port, ip in self.nodes_info.items():
-            message = {
-                'type': 'REQUEST',
-                'clock': self.clock,
-                'origin': self.id_node,
-                'timestamp': datetime.now().isoformat()
-            }
-            if self.send_message(self, {
-                'destination': port,
-                'content': json.dumps(message)
-            }):
-                print(f"[Nodo {self.id_node}] Enviando SOLICITUD al nodo {port - self.base_port}")
-            else:
-                print(f"[Nodo {self.id_node}] Error enviando SOLICITUD al nodo {port - self.base_port}")
-                self.pending_replies -= 1  # Reducir el número de respuestas esperadas si el nodo no está disponible
-
-        # Esperar respuestas con un timeout
-        start_time = time.time()
-        while self.replies_received < self.pending_replies:
-            if time.time() - start_time > timeout:
-                print(f"[Nodo {self.id_node}] Timeout waiting for replies. Aborting critical section request.")
-                print(f"[Nodo {self.id_node}] Se recibieron {self.replies_received} respuestas de {self.pending_replies} esperadas.")
-                self.in_critical_section = False
-                return  # Abortamos si no recibimos suficientes respuestas
-            time.sleep(0.1)  # Esperar un breve momento antes de verificar nuevamente
-
-        # Si se recibieron suficientes respuestas, entrar en la sección crítica
-        if self.replies_received >= self.pending_replies:
-            print(f"[Nodo {self.id_node}] Se recibieron todas las respuestas necesarias. Accediendo a seccion critica.")
-            self.enter_critical_section()
- 
-    def enter_critical_section(self):
-        """Entra en la sección crítica"""
-        print(f"[Nodo {self.id_node}] En seccion critica.")
-        # Aquí puedes realizar la operación crítica (por ejemplo, comprar un artículo)
-        self.purchase_item()
-
-        # Salir de la sección crítica
-        self.exit_critical_section()
-
-    def exit_critical_section(self):
-        """Sale de la sección crítica"""
-        print(f"[Nodo {self.id_node}] Saliendo de la seccion critica.")
-        self.in_critical_section = False
-
-        # Responder a las solicitudes pendientes en la col
-        while self.request_queue:
-            pending_request = self.request_queue.pop(0)
-            self.handle_request(pending_request)
-
-    def handle_coordinator_message(self, message):
-        """Maneja mensajes COORDINATOR (nodo maestro)"""
-        new_master_id = message['origin']
-
-        # Verificar si ya se procesó este mensaje
-        if hasattr(self, 'last_coordinator_message') and self.last_coordinator_message == message:
-            return  # Ignorar mensajes repetidos
-
-        # Actualizar el último mensaje procesado
-        self.last_coordinator_message = message
-
-        print(
-            f"[Nodo {self.id_node}] 🟢 CORDINADOR SELECCIONADO\n"
-            f"   │ Nuevo coordinador: Node {new_master_id}\n"
-            f"   │ Reloj logico: {message.get('clock', 'N/A')}\n"
-            f"   │ Timestamp: {message['timestamp']}\n"
-        )
-        self.is_master = (self.id_node == new_master_id)  # Solo el nuevo maestro tiene is_master = True
-        self.current_master = new_master_id
-
+    # Mensajeria
     def handle_connection(self, conn, addr):
         """Maneja cualquier mensaje de entrada."""
         with conn:
@@ -466,6 +211,230 @@ class Node:
             except Exception as e:
                 print(f"[Nodo {self.id_node}] Critical error: {str(e)}")
 
+    def send_message(self, message_dict: dict):
+        """Envía un mensaje a otro nodo"""
+        try:
+
+            dest_port = message_dict['destination'] + self.base_port
+            if dest_port == self.port:
+                print(f"[Nodo {self.id_node}] Advertencia: No se puede enviar un mensaje a si mismo.")
+                return False
+
+            dest_ip = self.nodes_info.get(dest_port)
+            if not dest_ip:
+                print(f"[Nodo {self.id_node}] Error: Destino desconocido en puerto {dest_port}")
+                return False
+
+            with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+                s.settimeout(5.0)
+
+                s.connect((dest_ip, dest_port))
+
+                message_dict['origin'] = self.id_node
+                message_dict['timestamp'] = datetime.now().isoformat()
+
+                s.sendall(json.dumps(message_dict).encode('utf-8'))
+                self.messages.append(message_dict)
+                print(f"[Nodo {self.id_node}] Enviado a {dest_port}: {message_dict}")
+                return True
+
+        except ConnectionRefusedError as e:
+            print(f"[Nodo {self.id_node}] Error: Nodo {dest_port - self.base_port} no disponible")
+            print(e)
+        except socket.timeout:
+            print(f"[Nodo {self.id_node}] Error: Connection timeout with node {dest_port - self.base_port}")
+        except Exception as e:
+            print(f"[Nodo {self.id_node}] Error en envio: {e}")
+        
+        return False
+    
+    def _send_message_ui(self):
+        """Maneja el envío de mensajes desde la UI"""
+        available_ids = [p - self.base_port for p in self.nodes_info.keys()]
+        print("\nNodos disponibles (IDs):", available_ids)
+        try:
+            dest_node_id = int(input("Nodo destino (ID): "))
+            
+            if dest_node_id not in available_ids:
+                print("Error: ID de nodo invalido.")
+                return
+
+            content = input("Mensaje: ").strip()
+            if not content:
+                print("Error: El mensaje no puede estar vacio.")
+                return
+
+            message: dict = {
+                'type': 'PLAIN_TEXT',
+                'destination': dest_node_id,
+                'content': content
+            }
+            self.send_message(message)
+
+        except ValueError:
+            print("Error: Por favor ingresa un ID de nodo valido.")
+
+    def handle_request(self, message):
+        """Maneja un mensaje REQUEST recibido"""
+        self.synchronize_clock(message['clock'])
+        origin = message['origin']
+
+        # Responder con REPLY si no estoy en la sección crítica o si mi solicitud tiene menor prioridad
+        if not self.in_critical_section or (self.clock, self.id_node) > (message['clock'], origin):
+            reply_message = {
+                'type': 'REPLY',
+                'clock': self.clock,
+                'origin': self.id_node,
+                'timestamp': datetime.now().isoformat()
+            }
+            self.send_message(self, {
+                'destination': self.base_port + origin,
+                'content': json.dumps(reply_message)
+            })
+            print(f"[Nodo {self.id_node}] RESPUESTA enviada al nodo {origin}.")
+        else:
+            # Agregar la solicitud a la cola
+            self.request_queue.append(message)
+
+    def handle_reply(self, message):
+        """Maneja un mensaje REPLY recibido"""
+        self.synchronize_clock(message['clock'])
+        self.replies_received += 1
+        print(f"[Nodo {self.id_node}] RESPUESTA recibida desde nodo {message['origin']}. Todas las respuestas: {self.replies_received}")
+
+    def _show_bd_history(self):
+        """Muestra el historial de mensajes desde la base de datos"""
+        try:
+            conn = sqlite3.connect(self.db_name)
+            cursor = conn.cursor()
+            cursor.execute("SELECT origin, destination, content, timestamp FROM messages ORDER BY id ASC")
+            rows = cursor.fetchall()
+            conn.close()
+
+            print("\nHistorial de mensajes (desde BD):")
+            print("=" * 40)
+            for i, (origin, dest, content, ts) in enumerate(rows, 1):
+                print(f"{i}. [{ts}] {origin} -> {dest - self.base_port}: {content}")
+
+        except Exception as e:
+            print(f"[Nodo {self.id_node}] Error leyendo historial: {e}")
+
+    def _save_message_to_db(self, msg):
+        """Guarda un mensaje en la base de datos"""
+        try:
+            conn = sqlite3.connect(self.db_name)
+            cursor = conn.cursor()
+
+            # Convertir el contenido del mensaje a JSON si es un diccionario
+            content = msg.get('content')
+            if isinstance(content, dict):
+                content = json.dumps(content)
+
+            cursor.execute("""
+                INSERT INTO messages (origin, destination, content, timestamp)
+                VALUES (?, ?, ?, ?)
+            """, (
+                msg.get('origin', self.id_node),
+                msg.get('destination'),
+                content,
+                msg.get('timestamp', datetime.now().isoformat())
+            ))
+            conn.commit()
+            conn.close()
+        except Exception as e:
+            print(f"[Nodo {self.id_node}] Error durante insercion en la BD: {e}")
+
+    def _show_text_history(self):
+        """Muestra el historial de mensajes"""
+        print("\nHistorial de mensajes:")
+        print("=" * 40)
+        for i, msg in enumerate(self.messages, 1):
+            direction = f"{msg.get('origin', '?')} -> {msg['destination'] - self.base_port}"
+            print(f"{i}. [{msg['timestamp']}] {direction}: {msg['content']}")
+
+    def export_history(self):
+        """Exporta el historial a JSON"""
+        filename = f"node_{self.id_node}_history.json"
+        try:
+            with open(filename, 'w', encoding='utf-8') as f:
+                json.dump({
+                    'node_id': self.id_node,
+                    'timestamp': datetime.now().isoformat(),
+                    'messages': self.messages
+                }, f, indent=2, ensure_ascii=False)
+            print(f"Historial exportado en {filename}")
+        except Exception as e:
+            print(f"Error durante exportacion: {e}")
+
+    # Sincronizacion
+    def synchronize_clock(self, received_clock):
+        """Sincroniza el reloj lógico con un valor recibido"""
+        self.clock = max(self.clock, received_clock) + 1
+
+    def increment_clock(self):
+        """Incrementa el reloj lógico"""
+        self.clock += 1
+
+    # Metodos de exclusion mutua.
+    def request_critical_section(self, timeout=5):
+        """Solicita acceso a la sección crítica con un timeout"""
+        self.increment_clock()
+        self.in_critical_section = True
+        self.replies_received = 0
+        self.pending_replies = len(self.nodes_info)  # Número de nodos de los que se espera respuesta
+
+        # Enviar mensaje REQUEST a todos los nodos
+        for port, ip in self.nodes_info.items():
+            message = {
+                'type': 'REQUEST',
+                'clock': self.clock,
+                'origin': self.id_node,
+                'timestamp': datetime.now().isoformat()
+            }
+            if self.send_message(self, {
+                'destination': port,
+                'content': json.dumps(message)
+            }):
+                print(f"[Nodo {self.id_node}] Enviando SOLICITUD al nodo {port - self.base_port}")
+            else:
+                print(f"[Nodo {self.id_node}] Error enviando SOLICITUD al nodo {port - self.base_port}")
+                self.pending_replies -= 1  # Reducir el número de respuestas esperadas si el nodo no está disponible
+
+        # Esperar respuestas con un timeout
+        start_time = time.time()
+        while self.replies_received < self.pending_replies:
+            if time.time() - start_time > timeout:
+                print(f"[Nodo {self.id_node}] Timeout waiting for replies. Aborting critical section request.")
+                print(f"[Nodo {self.id_node}] Se recibieron {self.replies_received} respuestas de {self.pending_replies} esperadas.")
+                self.in_critical_section = False
+                return  # Abortamos si no recibimos suficientes respuestas
+            time.sleep(0.1)  # Esperar un breve momento antes de verificar nuevamente
+
+        # Si se recibieron suficientes respuestas, entrar en la sección crítica
+        if self.replies_received >= self.pending_replies:
+            print(f"[Nodo {self.id_node}] Se recibieron todas las respuestas necesarias. Accediendo a seccion critica.")
+            self.enter_critical_section()
+ 
+    def enter_critical_section(self):
+        """Entra en la sección crítica"""
+        print(f"[Nodo {self.id_node}] En seccion critica.")
+        # Aquí puedes realizar la operación crítica (por ejemplo, comprar un artículo)
+        self.purchase_item()
+
+        # Salir de la sección crítica
+        self.exit_critical_section()
+
+    def exit_critical_section(self):
+        """Sale de la sección crítica"""
+        print(f"[Nodo {self.id_node}] Saliendo de la seccion critica.")
+        self.in_critical_section = False
+
+        # Responder a las solicitudes pendientes en la col
+        while self.request_queue:
+            pending_request = self.request_queue.pop(0)
+            self.handle_request(pending_request)
+
+    # Consenso
     def two_phase_commit(self, prepare_message, commit_message, abort_message):
         """Implementa el protocolo de 2PC"""
         try:
@@ -500,7 +469,7 @@ class Node:
             print(f"[Nodo {self.id_node}] Error en 2PC: {e}")
             return False
 
-    ### ELECCIÓN DE NODO MAESTRO ###
+    # ELECCIÓN DE NODO MAESTRO
     def start_election(self):
         """Inicia el proceso de elección (algoritmo de Bully)"""
         print(f"[Nodo {self.id_node}] Comenzando eleccion...")
@@ -636,6 +605,26 @@ class Node:
             })
             self.start_election()
 
+    def handle_coordinator_message(self, message):
+        """Maneja mensajes COORDINATOR (nodo maestro)"""
+        new_master_id = message['origin']
+
+        # Verificar si ya se procesó este mensaje
+        if hasattr(self, 'last_coordinator_message') and self.last_coordinator_message == message:
+            return  # Ignorar mensajes repetidos
+
+        # Actualizar el último mensaje procesado
+        self.last_coordinator_message = message
+
+        print(
+            f"[Nodo {self.id_node}] 🟢 CORDINADOR SELECCIONADO\n"
+            f"   │ Nuevo coordinador: Node {new_master_id}\n"
+            f"   │ Reloj logico: {message.get('clock', 'N/A')}\n"
+            f"   │ Timestamp: {message['timestamp']}\n"
+        )
+        self.is_master = (self.id_node == new_master_id)  # Solo el nuevo maestro tiene is_master = True
+        self.current_master = new_master_id
+
     ############
     # CLIENTES
     ############
@@ -730,11 +719,11 @@ class Node:
                 elif choice == "400":
                     self._send_message_ui()
                 elif choice == "401":
-                    self._show_history()
+                    self._show_text_history()
                 elif choice == "402":
                     self._export_history()
                 elif choice == "403":
-                    self._show_db_messages()
+                    self._show_bd_history()
                 elif choice == "404":
                     self._update_inventory_ui()
                 elif choice == "405":
