@@ -129,6 +129,7 @@ class Node:
                 return
 
             message: dict = {
+                'type': 'PLAIN_TEXT',
                 'destination': dest_node_id,
                 'content': content
             }
