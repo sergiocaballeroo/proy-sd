@@ -1,6 +1,7 @@
 import sqlite3, datetime, json
+from nodes import Node
 
-def show_inventory(node):
+def show_inventory(node: Node):
   """Muestra el inventario local"""
   try:
     conn = sqlite3.connect(node.db_name)
@@ -16,7 +17,7 @@ def show_inventory(node):
   except Exception as e:
     print(f"[Nodo {node.id_node}] Error obteniendo inventario: {e}")
 
-def get_item_quantity(node, item_id):
+def get_item_quantity(node: Node, item_id):
   """Obtiene la cantidad actual de un artículo en el inventario local"""
   try:
     conn = sqlite3.connect(node.db_name)
@@ -31,10 +32,10 @@ def get_item_quantity(node, item_id):
     print(f"[Nodo {node.id_node}] Error obteniendo numero de unidades del articulo {item_id}: {e}")
     return 0
 
-def propagate_inventory_update(node, item_id, new_quantity):
+def propagate_inventory_update(node: Node, item_id, new_quantity):
   """Propaga la actualización de inventario a los demás nodos y espera confirmaciones"""
   confirmations = 1  # Ya está confirmado localmente
-  total_nodes = len(node.nodes_info) + 1  # Incluye este nodo
+  total_nodes = len(node.neighbours) + 1  # Incluye este nodo
 
   update_message = {
     'type': 'INVENTORY_UPDATE',
@@ -44,7 +45,7 @@ def propagate_inventory_update(node, item_id, new_quantity):
     'timestamp': datetime.now().isoformat()
   }
 
-  for port, ip in node.nodes_info.items():
+  for port, ip in node.neighbours.items():
     try:
       msg = {
         'destination': port,
@@ -63,7 +64,7 @@ def propagate_inventory_update(node, item_id, new_quantity):
     print(f"[Nodo {node.id_node}] Actualizacion de inventario NO confirmada por mayoria ({confirmations}/{total_nodes})")
     return False
 
-def update_inventory(node, item_id, quantity_change, propagate=True):
+def update_inventory(node: Node, item_id, quantity_change, propagate=True):
   """Actualiza la cantidad de un artículo en el inventario y propaga el cambio si es necesario"""
   try:
     conn = sqlite3.connect(node.db_name)
@@ -105,7 +106,7 @@ def update_inventory(node, item_id, quantity_change, propagate=True):
     print(f"[Nodo {node.id_node}] Error actualizando inventario: {e}")
     return False
 
-def add_item_inventory(node, item_id, quantity):
+def add_item_inventory(node: Node, item_id, quantity):
   """Agrega un producto al inventario y propaga la actualización a otros nodos"""
   try:
     conn = sqlite3.connect(node.db_name)
@@ -123,7 +124,7 @@ def add_item_inventory(node, item_id, quantity):
   except Exception as e:
       print(f"[Nodo {node.id_node}] Error agregando producto al inventario: {e}")
 
-def update_inventory_ui(node):
+def update_inventory_ui(node: Node):
   """Maneja la inserción de items al inventario"""
   try:
     item_id = input("Enter product id: ").strip()
@@ -132,9 +133,9 @@ def update_inventory_ui(node):
   except Exception as e:
     print(f"Error: {e}")
 
-def sync_inventory(node):
+def sync_inventory(node: Node):
   """Sincroniza el inventario con otros nodos"""
-  for port, ip in node.nodes_info.items():
+  for port, ip in node.neighbours.items():
     try:
       message = {
         'origin': node.id_node,

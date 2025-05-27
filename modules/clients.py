@@ -1,6 +1,7 @@
 import datetime, json, sqlite3
+from nodes import Node
 
-def view_clients(node):
+def view_clients(node: Node):
   """Muestra la lista de clientes"""
   try:
     conn = sqlite3.connect(node.db_name)
@@ -16,7 +17,7 @@ def view_clients(node):
   except Exception as e:
     print(f"[Nodo {node.id_node}] Error leyendo clientes disponibles: {e}")
 
-def propagate_client_update(node, client_id, name, phone, email):
+def propagate_client_update(node: Node, client_id, name, phone, email):
   """Propaga la actualización de un cliente a los demás nodos"""
   update_message = {
     'type': 'CLIENT_UPDATE',
@@ -28,7 +29,7 @@ def propagate_client_update(node, client_id, name, phone, email):
     'origin': node.id_node
   }
 
-  for port, ip in node.nodes_info.items():
+  for port, ip in node.neighbours.items():
     try:
       msg = {
         'destination': port,
@@ -39,7 +40,7 @@ def propagate_client_update(node, client_id, name, phone, email):
     except Exception as e:
       print(f"[Nodo {node.id_node}] Error enviando actualizacion de cliente al Nodo {port - node.base_port}: {e}")
 
-def add_client(node, name, phone, email):
+def add_client(node: Node, name, phone, email):
   """Agrega un cliente a la base de datos y propaga la actualización a otros nodos"""
   try:
     conn = sqlite3.connect(node.db_name)
@@ -59,7 +60,7 @@ def add_client(node, name, phone, email):
   except Exception as e:
     print(f"[Nodo {node.id_node}] Error agregando cliente: {e}")
 
-def add_client_ui(node):
+def add_client_ui(node: Node):
   """Interfaz para agregar un cliente"""
   try:
     name = input("Enter client name: ").strip()
@@ -69,7 +70,7 @@ def add_client_ui(node):
   except Exception as e:
     print(f"Error: {e}")
 
-def handle_client_update(node, message):
+def handle_client_update(node: Node, message):
   """Maneja una actualización de cliente recibida de otro nodo"""
   try:
     client_id = message['client_id']

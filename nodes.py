@@ -220,7 +220,7 @@ class Node:
                 print(f"[Nodo {self.id_node}] Advertencia: No se puede enviar un mensaje a si mismo.")
                 return False
 
-            dest_ip = self.nodes_info.get(dest_port)
+            dest_ip = self.neighbours.get(dest_port)
             if not dest_ip:
                 print(f"[Nodo {self.id_node}] Error: Destino desconocido en puerto {dest_port}")
                 return False
@@ -250,7 +250,7 @@ class Node:
     
     def _send_message_ui(self):
         """Maneja el envío de mensajes desde la UI"""
-        available_ids = [p - self.base_port for p in self.nodes_info.keys()]
+        available_ids = [p - self.base_port for p in self.neighbours.keys()]
         print("\nNodos disponibles (IDs):", available_ids)
         try:
             dest_node_id = int(input("Nodo destino (ID): "))
@@ -381,10 +381,10 @@ class Node:
         self.increment_clock()
         self.in_critical_section = True
         self.replies_received = 0
-        self.pending_replies = len(self.nodes_info)  # Número de nodos de los que se espera respuesta
+        self.pending_replies = len(self.neighbours)  # Número de nodos de los que se espera respuesta
 
         # Enviar mensaje REQUEST a todos los nodos
-        for port, ip in self.nodes_info.items():
+        for port, ip in self.neighbours.items():
             message = {
                 'type': 'REQUEST',
                 'clock': self.clock,
@@ -440,7 +440,7 @@ class Node:
         try:
             # Fase 1: PREPARE
             prepare_responses = 0
-            for port, ip in self.nodes_info.items():
+            for port, ip in self.neighbours.items():
                 if self.send_message({
                     'destination': port,
                     'content': json.dumps(prepare_message)
@@ -448,9 +448,9 @@ class Node:
                     prepare_responses += 1
 
             # Verificar si todos los nodos están listos
-            if prepare_responses < len(self.nodes_info):
+            if prepare_responses < len(self.neighbours):
                 print(f"[Nodo {self.id_node}] No todos los nodos estan listos. Abortando...")
-                for port, ip in self.nodes_info.items():
+                for port, ip in self.neighbours.items():
                     self.send_message({
                         'destination': port,
                         'content': json.dumps(abort_message)
@@ -458,7 +458,7 @@ class Node:
                 return False
 
             # Fase 2: COMMIT
-            for port, ip in self.nodes_info.items():
+            for port, ip in self.neighbours.items():
                 self.send_message({
                     'destination': port,
                     'content': json.dumps(commit_message)
@@ -476,7 +476,7 @@ class Node:
         self.increment_clock()
 
         # Identificar nodos con IDs mayores
-        higher_nodes = [port for port in self.nodes_info.keys() if port > self.port]
+        higher_nodes = [port for port in self.neighbours.keys() if port > self.port]
         higher_nodes_ids = [port - self.base_port for port in higher_nodes]
 
         print(
@@ -549,7 +549,7 @@ class Node:
             f"\n[Nodo {self.id_node}] 🎉 NODO MAESTRO SELECCIONADO\n"
             f"   │ Reloj actual: {self.clock}\n"
             f"   │ Momento de eleccion: {datetime.now().isoformat()}\n"
-            f"   │ Notificando a nodos: {list(self.nodes_info.keys())}\n"
+            f"   │ Notificando a nodos: {list(self.neighbours.keys())}\n"
             f"   └── Enviando notificacion como COORDINADOR..."
         )
 
@@ -559,7 +559,7 @@ class Node:
             'clock': self.clock,
             'timestamp': datetime.now().isoformat()
         }
-        for port in self.nodes_info.keys():
+        for port in self.neighbours.keys():
             self.send_message({
                 'destination': port,
                 'content': json.dumps(coordinator_message)
@@ -567,7 +567,7 @@ class Node:
 
     def announce_master(self):
         """Anuncia a todos los nodos que este nodo es el nuevo maestro"""
-        for port in self.nodes_info.keys():
+        for port in self.neighbours.keys():
             try:
                 coordinator_message = {
                     'type': 'COORDINATOR',

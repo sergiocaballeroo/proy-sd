@@ -1,6 +1,7 @@
 import sqlite3, datetime, json
+from nodes import Node
 
-def show_products(node):
+def show_products(node: Node):
     """Muestra el los productos registrados en nodo actual"""
     try:
         conn = sqlite3.connect(node.db_name)
@@ -16,7 +17,7 @@ def show_products(node):
     except Exception as e:
         print(f"[Node {node.id_node}] Error durante el listado de productos: {e}")
 
-def create_product(node, product_data):
+def create_product(node: Node, product_data):
     """Funcion encargada de crear un producto y enviar su cambio al resto de nodos."""
     try:
         conn = sqlite3.connect(node.db_name)
@@ -37,7 +38,7 @@ def create_product(node, product_data):
     except Exception as e:
         print(f"[Node {node.id_node}] Error durante la creacion del producto: {e}")
 
-def create_product_ui(node):
+def create_product_ui(node: Node):
     try:
         name = input("Nombre del producto: ")
         category = input("Categoria: ")
@@ -49,7 +50,7 @@ def create_product_ui(node):
     except ValueError:
         print("Entrada incorrecta. Por favor intenta de nuevo.")
 
-def update_product(node, product_data):
+def update_product(node: Node, product_data):
     """Muestra el los productos registrados en nodo actual"""
     try:
         conn = sqlite3.connect(node.db_name)
@@ -69,7 +70,7 @@ def update_product(node, product_data):
     except Exception as e:
         print(f"[Node {node.id_node}] Error durante la actualizacion del producto: {e}")
 
-def update_product_ui(node):
+def update_product_ui(node: Node):
     try:
         product_id = input("ID del producto a actualizar: ")
         name = input("Nombre del producto: ")
@@ -81,7 +82,7 @@ def update_product_ui(node):
     except ValueError:
         print("Entrada incorrecta. Por favor intenta de nuevo.")
 
-def distribute_items(node, item_id, total_quantity):
+def distribute_items(node: Node, item_id, total_quantity):
     """Distribuye automáticamente los artículos entre las sucursales"""
     if not node.is_master:
         print(f"[Nodo {node.id_node}] Error: Solo el nodo maestro puede distribuir articulos.")
@@ -91,7 +92,7 @@ def distribute_items(node, item_id, total_quantity):
 
     # Obtener la capacidad actual de cada nodo
     capacities = {}
-    for port, ip in node.nodes_info.items():
+    for port, ip in node.neighbours.items():
         try:
             message = {
                 'type': 'GET_CAPACITY',
@@ -105,7 +106,7 @@ def distribute_items(node, item_id, total_quantity):
             print(f"[Nodo {node.id_node}] Error solicitando capacidad desde el Nodo {port - node.base_port}: {e}")
 
     # Simular capacidades (en un entorno real, esto se recibiría como respuesta)
-    capacities = {port: 100 for port in node.nodes_info.keys()}  # Ejemplo: cada nodo tiene capacidad de 100
+    capacities = {port: 100 for port in node.neighbours.keys()}  # Ejemplo: cada nodo tiene capacidad de 100
 
     # Calcular la distribución equitativa
     total_nodes = len(capacities)
@@ -138,7 +139,7 @@ def distribute_items(node, item_id, total_quantity):
 
     print(f"[Nodo {node.id_node}] Distribuicion del articulo {item_id} completada.")
 
-def distribute_items_ui(node):
+def distribute_items_ui(node: Node):
     """Interfaz para distribuir artículos"""
     try:
         item_id = int(input("Ingresa el ID del articulo a distribuir: "))
