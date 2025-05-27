@@ -94,7 +94,6 @@ class Node:
 
                 s.connect((dest_ip, dest_port))
 
-                message_dict['type'] = 'PLAIN_TEXT'
                 message_dict['origin'] = self.id_node
                 message_dict['timestamp'] = datetime.now().isoformat()
 
