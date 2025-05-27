@@ -28,16 +28,16 @@ def propagate_client_update(node, client_id, name, phone, email):
     'origin': node.id_node
   }
 
-  for port, ip in node.neighbours.items():
+  for node_id, ip in node.neighbours.items():
     try:
       msg = {
-        'destination': port,
+        'destination': node_id,
         'content': json.dumps(update_message)
       }
       if node.send_message(msg):
-        print(f"[Nodo {node.id_node}] Actualizacion de cliente enviada al Nodo {port - node.base_port}")
+        print(f"[Nodo {node.id_node}] Actualizacion de cliente enviada al Nodo {node_id - node.base_port}")
     except Exception as e:
-      print(f"[Nodo {node.id_node}] Error enviando actualizacion de cliente al Nodo {port - node.base_port}: {e}")
+      print(f"[Nodo {node.id_node}] Error enviando actualizacion de cliente al Nodo {node_id - node.base_port}: {e}")
 
 def add_client(node, name, phone, email):
   """Agrega un cliente a la base de datos y propaga la actualización a otros nodos"""

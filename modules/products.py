@@ -91,7 +91,7 @@ def distribute_items(node, item_id, total_quantity):
 
     # Obtener la capacidad actual de cada nodo
     capacities = {}
-    for port, ip in node.neighbours.items():
+    for node_id, ip in node.neighbours.items():
         try:
             message = {
                 'type': 'GET_CAPACITY',
@@ -99,10 +99,10 @@ def distribute_items(node, item_id, total_quantity):
                 'origin': node.id_node,
                 'timestamp': datetime.now().isoformat()
             }
-            if node.send_message({'destination': port, 'content': json.dumps(message)}):
-                print(f"[Nodo {node.id_node}] Capacidad solicitada desde el Nodo {port - node.base_port}")
+            if node.send_message({'destination': node_id, 'content': json.dumps(message)}):
+                print(f"[Nodo {node.id_node}] Capacidad solicitada desde el Nodo {node_id}")
         except Exception as e:
-            print(f"[Nodo {node.id_node}] Error solicitando capacidad desde el Nodo {port - node.base_port}: {e}")
+            print(f"[Nodo {node.id_node}] Error solicitando capacidad desde el Nodo {node_id}: {e}")
 
     # Simular capacidades (en un entorno real, esto se recibiría como respuesta)
     capacities = {port: 100 for port in node.neighbours.keys()}  # Ejemplo: cada nodo tiene capacidad de 100

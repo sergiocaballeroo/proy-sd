@@ -210,7 +210,7 @@ class Node:
                         'timestamp': datetime.now().isoformat()
                     }
                     self.send_message(self, {
-                        'destination': self.base_port + origin,
+                        'destination': origin,
                         'content': json.dumps(capacity_message)
                     })
                     print(f"[Nodo {self.id_node}] Se envio stock actual del articulo {item_id} al Nodo {origin}.")
@@ -313,7 +313,7 @@ class Node:
                 'timestamp': datetime.now().isoformat()
             }
             self.send_message(self, {
-                'destination': self.base_port + origin,
+                'destination': origin,
                 'content': json.dumps(reply_message)
             })
             print(f"[Nodo {self.id_node}] RESPUESTA enviada al nodo {origin}.")
@@ -409,7 +409,7 @@ class Node:
         self.pending_replies = len(self.neighbours)  # Número de nodos de los que se espera respuesta
 
         # Enviar mensaje REQUEST a todos los nodos
-        for port, ip in self.neighbours.items():
+        for node_id, ip in self.neighbours.items():
             message = {
                 'type': 'REQUEST',
                 'clock': self.clock,
@@ -417,12 +417,12 @@ class Node:
                 'timestamp': datetime.now().isoformat()
             }
             if self.send_message(self, {
-                'destination': port,
+                'destination': node_id,
                 'content': json.dumps(message)
             }):
-                print(f"[Nodo {self.id_node}] Enviando SOLICITUD al nodo {port - self.base_port}")
+                print(f"[Nodo {self.id_node}] Enviando SOLICITUD al nodo {node_id - self.base_port}")
             else:
-                print(f"[Nodo {self.id_node}] Error enviando SOLICITUD al nodo {port - self.base_port}")
+                print(f"[Nodo {self.id_node}] Error enviando SOLICITUD al nodo {node_id - self.base_port}")
                 self.pending_replies -= 1  # Reducir el número de respuestas esperadas si el nodo no está disponible
 
         # Esperar respuestas con un timeout
@@ -465,9 +465,9 @@ class Node:
         try:
             # Fase 1: PREPARE
             prepare_responses = 0
-            for port, ip in self.neighbours.items():
+            for node_id, ip in self.neighbours.items():
                 if self.send_message({
-                    'destination': port,
+                    'destination': node_id,
                     'content': json.dumps(prepare_message)
                 }):
                     prepare_responses += 1
@@ -475,17 +475,17 @@ class Node:
             # Verificar si todos los nodos están listos
             if prepare_responses < len(self.neighbours):
                 print(f"[Nodo {self.id_node}] No todos los nodos estan listos. Abortando...")
-                for port, ip in self.neighbours.items():
+                for node_id, ip in self.neighbours.items():
                     self.send_message({
-                        'destination': port,
+                        'destination': node_id,
                         'content': json.dumps(abort_message)
                     })
                 return False
 
             # Fase 2: COMMIT
-            for port, ip in self.neighbours.items():
+            for node_id, ip in self.neighbours.items():
                 self.send_message({
-                    'destination': port,
+                    'destination': node_id,
                     'content': json.dumps(commit_message)
                 })
             print(f"[Nodo {self.id_node}] Commit aplicado.")
@@ -514,9 +514,9 @@ class Node:
             'clock': self.clock,
             'timestamp': datetime.now().isoformat()
         }
-        for port in [self.base_port + node_id for node_id in higher_nodes]:
+        for node_id in [self.base_port + node_id for node_id in higher_nodes]:
             self.send_message({
-                'destination': port,
+                'destination': node_id,
                 'content': json.dumps(election_message)
             })
 
@@ -581,15 +581,15 @@ class Node:
             'clock': self.clock,
             'timestamp': datetime.now().isoformat()
         }
-        for port in self.neighbours.keys():
+        for node_id in self.neighbours.keys():
             self.send_message({
-                'destination': port,
+                'destination': node_id,
                 'content': json.dumps(coordinator_message)
             })
 
     def announce_master(self):
         """Anuncia a todos los nodos que este nodo es el nuevo maestro"""
-        for port in self.neighbours.keys():
+        for node_id in self.neighbours.keys():
             try:
                 coordinator_message = {
                     'type': 'COORDINATOR',
@@ -597,13 +597,13 @@ class Node:
                     'clock': self.clock,  # Incluye el reloj lógico actual
                     'timestamp': datetime.now().isoformat()
                 }
-                print(f"[Nodo {self.id_node}] Enviando mensaje como COORDINATOR al Nodo {port - self.base_port}: {coordinator_message}")
+                print(f"[Nodo {self.id_node}] Enviando mensaje como COORDINATOR al Nodo {node_id - self.base_port}: {coordinator_message}")
                 self.send_message({
-                    'destination': port,
+                    'destination': node_id,
                     'content': json.dumps(coordinator_message)
                 })
             except Exception as e:
-                print(f"[Nodo {self.id_node}] Error enviando mensaje como COORDINATOR al Nodo {port - self.base_port}: {e}")
+                print(f"[Nodo {self.id_node}] Error enviando mensaje como COORDINATOR al Nodo {node_id - self.base_port}: {e}")
 
     def handle_election_message(self, message):
         """Handles ELECTION messages"""
@@ -622,7 +622,7 @@ class Node:
                 'timestamp': datetime.now().isoformat()
             }
             self.send_message({
-                'destination': self.base_port + message['origin'],
+                'destination': message['origin'],
                 'content': json.dumps(reply)
             })
             self.start_election()

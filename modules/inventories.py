@@ -44,16 +44,16 @@ def propagate_inventory_update(node, item_id, new_quantity):
     'timestamp': datetime.now().isoformat()
   }
 
-  for port, ip in node.neighbours.items():
+  for node_id, ip in node.neighbours.items():
     try:
       msg = {
-        'destination': port,
+        'destination': node_id,
         'content': json.dumps(update_message)
       }
       if node.send_message(msg):
         confirmations += 1
     except Exception as e:
-      print(f"[Nodo {node.id_node}] Error al enviar actualizacion de inventario al Nodo {port - node.base_port}: {e}")
+      print(f"[Nodo {node.id_node}] Error al enviar actualizacion de inventario al Nodo {node_id}: {e}")
 
   # Consenso simple: mayoría
   if confirmations >= (total_nodes // 2) + 1:
@@ -134,15 +134,15 @@ def update_inventory_ui(node):
 
 def sync_inventory(node):
   """Sincroniza el inventario con otros nodos"""
-  for port, ip in node.neighbours.items():
+  for node_id, ip in node.neighbours.items():
     try:
       message = {
         'origin': node.id_node,
-        'destination': port,
+        'destination': node_id,
         'content': 'SYNC_INVENTORY',
         'timestamp': datetime.now().isoformat()
       }
       if node.send_message(message):
-        print(f"[Nodo {node.id_node}] Solicitud de sincronizacion enviada al Nodo {port - node.base_port}")
+        print(f"[Nodo {node.id_node}] Solicitud de sincronizacion enviada al Nodo {node_id}")
     except Exception as e:
-      print(f"[Nodo {node.id_node}] Error sincronizando inventario con el Nodo {port - node.base_port}: {e}")
+      print(f"[Nodo {node.id_node}] Error sincronizando inventario con el Nodo {node_id}: {e}")
