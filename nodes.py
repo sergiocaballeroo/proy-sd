@@ -12,7 +12,7 @@ import time
 from pathlib import Path
 from db_utils import ensure_schema
 from utils import get_static_ip
-from modules import products, clients, inventories
+from modules import products, clients, inventories, purchases
 
 class Node:
     def __init__(self, id_node, port, nodes_info, node_ip='0.0.0.0', server_ready_event=None, base_port=5000):
@@ -653,49 +653,14 @@ class Node:
     def _update_inventory_ui(self):
         inventories.update_inventory_ui(self)
 
-    ######################
-    # COMPRA DE PRODUCTOS
-    ######################
+    ##########
+    # COMPRAS
+    ##########
     def _create_purchase_ui(self):
-        """Interfaz para comprar un artículo con exclusión mutua"""
-        try:
-            item_id = int(input("Enter the item ID to purchase: "))
-            quantity = int(input("Enter the quantity to purchase: "))
+        purchases.create_purchase_ui(self)
 
-            # Define la lógica de compra como un método interno
-            def purchase_item():
-                if self._update_inventory(item_id, -quantity):
-                    print(f"Se compraron {quantity} unidades del articulo {item_id}.")
-                else:
-                    print(f"Error comprando unidades del articulo {item_id}.")
-
-            # Asigna la lógica de compra al atributo `self.purchase_item`
-            self.purchase_item = purchase_item
-
-            # Solicitar acceso a la sección crítica
-            self.request_critical_section()
-
-        except ValueError:
-            print("Entrada invalida. Por favor ingresa valores numericos.")
-
-    #Nuevo metodo Guia de producto
     def _show_purchases(self):
-        """Muestra lista de compras aplicadas en la sucursal."""
-        try:
-            conn = sqlite3.connect(self.db_name)
-            cursor = conn.cursor()
-            cursor.execute("" \
-                "SELECT purchase_id, item_id, branch_id, client_id, quantity, delivery_guide, created_at FROM purchases" \
-            "")
-            rows = cursor.fetchall()
-            conn.close()
-
-            print("\nCompras en esta sucursal:")
-            print("=" * 40)
-            for row in rows:
-                print(f"ID Compra: {row[0]}, Producto: {row[1]}, Sucursal: {row[2]}, Cliente: {row[3]}, Cantidad: {row[4]}, Guia de envio: {row[5]}, Fecha de creacion: {row[6]}")
-        except Exception as e:
-            print(f"[Nodo {self.id_node}] Error obteniendo lista de compras: {e}")
+        purchases.show_purchases(self)
 
     #######################
     # INTERFAZ DE USUARIO
