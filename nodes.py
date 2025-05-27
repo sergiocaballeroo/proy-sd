@@ -636,7 +636,8 @@ class Node:
                 print("13. Purchase an item (with mutual exclusion)")
                 print("--> ")
                 print("14. Start master election")  # Nueva opción
-                print("15. Exit")
+                print("15. Distribute items")  # Nueva opción
+                print("16. Exit")
 
                 choice = input("Select option: ").strip()
 
@@ -670,7 +671,7 @@ class Node:
                     self.start_election()  # Llama al método para iniciar la elección
                 elif choice == "15":
                     self._distribute_items_ui()  # Llama al método para distribuir artículos
-                elif choice == "13":
+                elif choice == "16":
                     print("Exiting...")
                     break
                 else:
