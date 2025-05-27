@@ -119,6 +119,9 @@ class Node:
         # Si existe el maestro, verificar si sigue activo.
         # Si no hay maestro o el maestro se detuvo, identificar nodos con IDs mayores
         higher_nodes = [node_id for node_id in self.neighbours.keys() if node_id > self.port]
+        if not self.master and higher_nodes:
+            print(f'🚨 No hay referencia de nodo maestro. ({self.master})')
+            self.start_election(higher_nodes)
         if not higher_nodes and not self.master:
             self.become_master()
         elif not higher_nodes and self.master == self.id_node:
@@ -130,7 +133,7 @@ class Node:
             print(f'⭐️ El nodo maestro sigue sin cambios. ({self.master})')
         elif self.master != self.id_node and not self.neighbours.get(self.master):
             print(f'🚨 Nodo maestro desconectado. ({self.master})')
-            self.start_election(self, higher_nodes)
+            self.start_election(higher_nodes)
 
     ########################
     # ACCIONES ENTRE NODOS
