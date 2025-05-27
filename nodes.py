@@ -951,72 +951,74 @@ class Node:
 
     def user_interface(self):
         """Interfaz de línea de comandos"""
-        print(f"\nNode {self.id_node} - Command Interface")
-        print("=" * 40)
 
         while True:
             try:
-                print("\nOptions:")
-                print("1. Send message")
-                print("2. View message history")
-                print("3. Export message history")
-                print("4. View DB messages")
-                print("--> Products")
-                print("5. Create product")
-                print("6. Update product")
-                print("7. Show products")
-                print("--> Inventory")
-                print("8. Show inventory")
-                print("9. Update inventory")
-                print("10. Sync inventory with other nodes")
-                print("--> Client")
-                print("11. Add new client")
-                print("12. View client list")
-                print("--> Purchases")
-                print("13. Purchase an item (with mutual exclusion)")
-                print("14. Show Product guide")
-                print("--> ")
-                print("15. Start master election")  # Nueva opción
-                print("16. Distribute items")  # Nueva opción
-                print("17. Exit")
+                print(f"\nNode {self.id_node} - Opciones disponibles")
+                print("=" * 40)
+                print("\nElige una opcion:")
+                print("--> Clientes")
+                print("1. Ver lista de clientes")
+                print("2. Agregar nuevo cliente")
+                print("--> Productos")
+                print("3. Mostrar productos")
+                print("4. Crear productos")
+                print("5. Actualizar productos")
+                print("--> Inventario")
+                print("6. Mostrar inventario")
+                print("--> Compras")
+                print("7. Realizar una compra") # Método que integra exclusión mutua.
+                print("8. Salir")
+                print('########### EXTRAS')
+                print("--> Nodo actual")
+                print("9. Enviar mensaje")
+                print("10. Ver historial de mensajes")
+                print("11. Exportar historial de mensajes")
+                print("12. Ver mensajes de BD")
+                print("--> Opciones para realizar pruebas.")
+                print("13. Actualizar inventario")
+                print("14. FIX: Show Product guide")
+                print("15. FIX: Sync inventory with other nodes")
+                print("16. FIX: Start master election")
+                print("17. FIX: Distribute items")
 
                 choice = input("Select option: ").strip()
 
                 if choice == "1":
-                    self._send_message_ui()
-                elif choice == "2":
-                    self._show_history()
-                elif choice == "3":
-                    self.export_history()
-                elif choice == "4":
-                    self._show_db_messages()
-                elif choice == "5":
-                    self.create_product_ui()
-                elif choice == "6":
-                    self.update_product_ui()
-                elif choice == "7":
-                    self.show_products()
-                elif choice == "8":
-                    self.show_inventory()
-                elif choice == "9":
-                    self._update_inventory_ui()
-                elif choice == "10":
-                    self.sync_inventory()
-                elif choice == "11":
-                    self._add_client_ui()
-                elif choice == "12":
                     self._view_clients()
-                elif choice == "13":
+                elif choice == "2":
+                    self._add_client_ui()
+                elif choice == "3":
+                    self.show_products()
+                elif choice == "4":
+                    self.create_product_ui()
+                elif choice == "5":
+                    self.update_product_ui()
+                elif choice == "6":
+                    self.show_inventory()
+                elif choice == "7":
                     self._purchase_item_ui()
+                elif choice == "8":
+                    print("Exiting...")
+                    break
+                elif choice == "9":
+                    self._send_message_ui()
+                elif choice == "10":
+                    self._show_history()
+                elif choice == "11":
+                    self.export_history()
+                elif choice == "12":
+                    self._show_db_messages()
+                elif choice == "13":
+                    self._update_inventory_ui()
                 elif choice == "14":
                     self.user_guide()
                 elif choice == "15":
-                    self.start_election()  # Llama al método para iniciar la elección
+                    self.sync_inventory()
                 elif choice == "16":
-                    self._distribute_items_ui()  # Llama al método para distribuir artículos
+                    self.start_election()  # Llama al método para iniciar la elección
                 elif choice == "17":
-                    print("Exiting...")
-                    break
+                    self._distribute_items_ui()  # Llama al método para distribuir artículos
                 else:
                     print("Invalid option")
 
