@@ -12,7 +12,7 @@ import time
 from pathlib import Path
 from db_utils import ensure_schema
 from utils import get_static_ip
-from modules import products, clients
+from modules import products, clients, inventories
 
 class Node:
     def __init__(self, id_node, port, nodes_info, node_ip='0.0.0.0', server_ready_event=None, base_port=5000):
@@ -394,9 +394,9 @@ class Node:
                     item_id = content_data.get('item_id')
                     new_quantity = content_data.get('new_quantity')
                     if item_id and new_quantity:
-                        self.update_inventory(
+                        self._update_inventory(
                             item_id,
-                            new_quantity - self.get_item_quantity(item_id),
+                            new_quantity - self._get_item_quantity(item_id),
                             propagate=False
                         )
                         print(f"[Nodo {self.id_node}] Inventario actualizado para el item {item_id}")
@@ -407,7 +407,7 @@ class Node:
                 
                 elif msg_type == 'GET_CAPACITY':
                     item_id = content_data.get('item_id')
-                    current_quantity = self.get_item_quantity(item_id)
+                    current_quantity = self._get_item_quantity(item_id)
                     capacity_message = {
                         'type': 'CAPACITY_RESPONSE',
                         'item_id': item_id,
@@ -638,155 +638,20 @@ class Node:
     ###############
     # INVENTARIOS
     ###############
-    def get_item_quantity(self, item_id):
-        """Obtiene la cantidad actual de un artículo en el inventario local"""
-        try:
-            conn = sqlite3.connect(self.db_name)
-            cursor = conn.cursor()
-            cursor.execute("SELECT quantity FROM branch_stock WHERE id = ?", (item_id,))
-            result = cursor.fetchone()
-            conn.close()
-            if result:
-                return result[0]
-            return 0
-        except Exception as e:
-            print(f"[Nodo {self.id_node}] Error obteniendo numero de unidades del articulo {item_id}: {e}")
-            return 0
+    def _get_item_quantity(self, item_id):
+        inventories.get_item_quantity(self, item_id)
 
-    def show_inventory(self):
-        """Muestra el inventario local"""
-        try:
-            conn = sqlite3.connect(self.db_name)
-            cursor = conn.cursor()
-            cursor.execute("SELECT id, item_id, quantity, last_updated_at FROM branch_stock")
-            rows = cursor.fetchall()
-            conn.close()
+    def _show_inventory(self):
+        inventories.show_inventory(self)
 
-            print("\nInventario local:")
-            print("=" * 40)
-            for row in rows:
-                print(f"ID: {row[0]}, Name: {row[1]}, Quantity: {row[2]}, Price: {row[3]}, Last Updated: {row[4]}")
-        except Exception as e:
-            print(f"[Nodo {self.id_node}] Error obteniendo inventario: {e}")
+    def _propagate_inventory_update(self, item_id, new_quantity):
+        inventories.propagate_inventory_update(self, item_id, new_quantity)
 
-    def propagate_inventory_update(self, item_id, new_quantity):
-        """Propaga la actualización de inventario a los demás nodos y espera confirmaciones"""
-        confirmations = 1  # Ya está confirmado localmente
-        total_nodes = len(self.nodes_info) + 1  # Incluye este nodo
-
-        update_message = {
-            'type': 'INVENTORY_UPDATE',
-            'item_id': item_id,
-            'new_quantity': new_quantity,
-            'origin': self.id_node,
-            'timestamp': datetime.now().isoformat()
-        }
-
-        for port, ip in self.nodes_info.items():
-            try:
-                msg = {
-                    'destination': port,
-                    'content': json.dumps(update_message)
-                }
-                if self.send_message(msg):
-                    confirmations += 1
-            except Exception as e:
-                print(f"[Nodo {self.id_node}] Error al enviar actualizacion de inventario al Nodo {port - self.base_port}: {e}")
-
-        # Consenso simple: mayoría
-        if confirmations >= (total_nodes // 2) + 1:
-            print(f"[Nodo {self.id_node}] Actualizacion de inventario confirmada por mayoria ({confirmations}/{total_nodes})")
-            return True
-        else:
-            print(f"[Nodo {self.id_node}] Actualizacion de inventario NO confirmada por mayoria ({confirmations}/{total_nodes})")
-            return False
-
-    def update_inventory(self, item_id, quantity_change, propagate=True):
-        """Actualiza la cantidad de un artículo en el inventario y propaga el cambio si es necesario"""
-        try:
-            conn = sqlite3.connect(self.db_name)
-            cursor = conn.cursor()
-            cursor.execute("SELECT quantity FROM branch_stock WHERE item_id = ?", (item_id,))
-            result = cursor.fetchone()
-            if result:
-                new_quantity = result[0] + quantity_change
-                if new_quantity < 0:
-                    print(f"[Nodo {self.id_node}] Error: No hay unidades suficientes del articulo {item_id}")
-                    return False
-                cursor.execute("""
-                    UPDATE branch_stock
-                    SET quantity = ?, last_updated_at = ?
-                    WHERE item_id = ?
-                """, (new_quantity, datetime.now().isoformat(), item_id))
-                conn.commit()
-                print(f"[Nodo {self.id_node}] Inventario actualizado para el articulo {item_id}")
-
-                # Propaga la actualización si es necesario
-                if propagate:
-                    success = self.propagate_inventory_update(item_id, new_quantity)
-                    if not success:
-                        print(f"[Nodo {self.id_node}] Descartando cambios en inventario para el articulo {item_id}")
-                        # Rollback: restaurar cantidad anterior
-                        cursor.execute("""
-                            UPDATE branch_stock
-                            SET quantity = ?, last_updated_at = ?
-                            WHERE item_id = ?
-                        """, (result[0], datetime.now().isoformat(), item_id))
-                        conn.commit()
-                        conn.close()
-                        return False
-            else:
-                print(f"[Nodo {self.id_node}] Error: No se encontro inventario del articulo {item_id}.")
-            conn.close()
-            return True
-        except Exception as e:
-            print(f"[Nodo {self.id_node}] Error actualizando inventario: {e}")
-            return False
-
-    def add_item_inventory(self, item_id, quantity):
-        """Agrega un producto al inventario y propaga la actualización a otros nodos"""
-        try:
-            conn = sqlite3.connect(self.db_name)
-            cursor = conn.cursor()
-            # Insertar cliente localmente
-            cursor.execute("""
-                INSERT INTO branch_stock (branch_id, item_id, quantity, last_updated_at)
-                VALUES (?, ?, ?, ?)
-            """, (self.id_node, item_id, quantity, datetime.now().isoformat()))
-            conn.commit()
-            client_id = cursor.lastrowid  # Obtener el ID del cliente recién agregado
-            conn.close()
-            print(f"[Nodo {self.id_node}] Producto agregado: {item_id}")
-
-            # Propagar la actualización a otros nodos
-
-        except Exception as e:
-            print(f"[Nodo {self.id_node}] Error agregando producto al inventario: {e}")
+    def _update_inventory(self, item_id, quantity_change, propagate=True):
+        inventories.update_inventory(self, item_id, quantity_change, propagate)
 
     def _update_inventory_ui(self):
-        """Maneja la inserción de items al inventario"""
-        try:
-            name = input("Enter product name: ").strip()
-            quantity = input("Enter quantity: ").strip()
-            price = input("Enter price: ").strip()
-            self.add_item_inventory(name, quantity, price)
-        except Exception as e:
-            print(f"Error: {e}")
-
-    def sync_inventory(self):
-        """Sincroniza el inventario con otros nodos"""
-        for port, ip in self.nodes_info.items():
-            try:
-                message = {
-                    'origin': self.id_node,
-                    'destination': port,
-                    'content': 'SYNC_INVENTORY',
-                    'timestamp': datetime.now().isoformat()
-                }
-                if self.send_message(message):
-                    print(f"[Nodo {self.id_node}] Solicitud de sincronizacion enviada al Nodo {port - self.base_port}")
-            except Exception as e:
-                print(f"[Nodo {self.id_node}] Error sincronizando inventario con el Nodo {port - self.base_port}: {e}")
+        inventories.update_inventory_ui(self)
 
     ######################
     # COMPRA DE PRODUCTOS
@@ -799,7 +664,7 @@ class Node:
 
             # Define la lógica de compra como un método interno
             def purchase_item():
-                if self.update_inventory(item_id, -quantity):
+                if self._update_inventory(item_id, -quantity):
                     print(f"Se compraron {quantity} unidades del articulo {item_id}.")
                 else:
                     print(f"Error comprando unidades del articulo {item_id}.")
