@@ -11,3 +11,27 @@ def get_static_ip():
   except Exception as e:
     # Por defecto, se coloca ID 1 al nodo.
     return 1
+
+import subprocess
+
+def ping_ip(ip):
+  """
+  Realiza un ping a una IP y devuelve True si responde, False si no.
+  El ping solo envia 2 paquetes como maximo y con una espera de 1 segundos.
+  """
+  result = subprocess.run(["ping", "-c", "2", "-W", "1", ip], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+  return result.returncode == 0
+
+def update_neighbours(requester_ip, ips: dict):
+  """
+  Funcion encargada de verificar a que vecinos tiene acceso un nodo al
+  comienzo de su ejecucion.
+  """
+  neighbours = {}
+  for node_id, ip in ips.items():
+    if ip != requester_ip and ping_ip(ip):
+      print(f'Conexion disponible! ({ip})')
+      neighbours[node_id] = ip
+    else:
+      print(f'{ip} no se encuentra disponible.')
+  return neighbours

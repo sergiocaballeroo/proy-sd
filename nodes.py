@@ -11,7 +11,7 @@ import sqlite3
 import time
 from pathlib import Path
 from db_utils import ensure_schema
-from utils import get_static_ip
+import utils
 from modules import products, clients, inventories, purchases
 
 class Node:
@@ -614,53 +614,33 @@ class Node:
     ############
     # CLIENTES
     ############
-    def _view_clients(self):
-        clients.view_clients(self)
-
-    def _add_client_ui(self):
-        clients.add_client_ui(self)
+    def _view_clients(self): clients.view_clients(self)
+    def _add_client_ui(self): clients.add_client_ui(self)
 
     #####################
     # PRODUCTOS / ITEMS
     #####################
-    def _show_products(self):
-        products.show_products(self)
-
-    def _create_product_ui(self):
-        products.create_product_ui(self)
-
-    def _update_product_ui(self):
-        products.update_product_ui(self)
-
-    def _distribute_items_ui(self):
-        products.distribute_items_ui(self)
+    def _show_products(self): products.show_products(self)
+    def _create_product_ui(self): products.create_product_ui(self)
+    def _update_product_ui(self): products.update_product_ui(self)
+    def _distribute_items_ui(self): products.distribute_items_ui(self)
 
     ###############
     # INVENTARIOS
     ###############
-    def _get_item_quantity(self, item_id):
-        inventories.get_item_quantity(self, item_id)
-
-    def _show_inventory(self):
-        inventories.show_inventory(self)
-
+    def _get_item_quantity(self, item_id): inventories.get_item_quantity(self, item_id)
+    def _show_inventory(self): inventories.show_inventory(self)
     def _propagate_inventory_update(self, item_id, new_quantity):
         inventories.propagate_inventory_update(self, item_id, new_quantity)
-
     def _update_inventory(self, item_id, quantity_change, propagate=True):
         inventories.update_inventory(self, item_id, quantity_change, propagate)
-
-    def _update_inventory_ui(self):
-        inventories.update_inventory_ui(self)
+    def _update_inventory_ui(self): inventories.update_inventory_ui(self)
 
     ##########
     # COMPRAS
     ##########
-    def _create_purchase_ui(self):
-        purchases.create_purchase_ui(self)
-
-    def _show_purchases(self):
-        purchases.show_purchases(self)
+    def _create_purchase_ui(self): purchases.create_purchase_ui(self)
+    def _show_purchases(self): purchases.show_purchases(self)
 
     #######################
     # INTERFAZ DE USUARIO
@@ -749,23 +729,36 @@ class Node:
             except Exception as e:
                 print(f"Error: {e}")
 
+
+# Diccionario inicial de los nodos esperados en el sistema.
+# Clave: ID de nodo, Valor: IP estatica del nodo.
+DEFAULT_IPS = {
+    1: '192.168.100.61',
+    2: '192.168.100.62',
+    3: '192.168.100.63',
+    4: '192.168.100.64'
+}
+
 if __name__ == "__main__":
     # Toma el valor de la variable de entorno NODE_ID, si no se cuenta con valor, se determina con el ultimo
     # digito de su IP estatica.
-    NODE_ID = int(os.getenv("NODE_ID", get_static_ip()[-1])) + 1
+    # Se da por entendido que los IDs de los nodos comenzaran desde el 1, 2, 3, en adelante.
+    current_ip = utils.get_static_ip()
+    NODE_ID = int(os.getenv("NODE_ID", 1 if current_ip[-1] == '0' else current_ip[-1]))
+    print(f'Generando nodo con ID {NODE_ID} ({current_ip})...')
     BASE_PORT = 5000
-    NODE_IPS = {
-        5001: '192.168.10.131',
-        5002: '192.168.10.132',
-        5003: '192.168.10.133',
-        5004: '192.168.10.134'
-    }
+    # Se identificarán los "nodos" disponibles al momento de la creación del nodo.
+    neighbours_available: dict = utils.update_neighbours(current_ip, DEFAULT_IPS)
+
+    NODE_IPS = {}
+    for neighbour_id, node_ip in neighbours_available.items():
+        NODE_IPS[BASE_PORT + neighbour_id] = node_ip
 
     server_ready = threading.Event()
     node = Node(
         id_node=NODE_ID,
         port=BASE_PORT + NODE_ID,
-        nodes_info={p: ip for p, ip in NODE_IPS.items() if p != BASE_PORT + NODE_ID},
+        nodes_info=NODE_IPS,
         server_ready_event=server_ready,
         base_port=BASE_PORT
     )
