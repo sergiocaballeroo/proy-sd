@@ -89,7 +89,7 @@ class Node:
         prev_neighbours = set()
         while True:
             # Se identificarán los "nodos" disponibles al momento de la creación del nodo.
-            neighbours_available: list = utils.update_neighbours(self.static_ip, self.all_nodes)
+            neighbours_available: dict = utils.update_neighbours(self.static_ip, self.all_nodes)
             curr_neighbours = set(neighbours_available)
 
             if curr_neighbours != prev_neighbours:
@@ -104,8 +104,8 @@ class Node:
                 prev_neighbours = curr_neighbours
 
                 NODE_IPS = {}
-                for node_ip in curr_neighbours:
-                    NODE_IPS[self.base_port + int(node_ip.split('.')[-1])] = node_ip
+                for node_id in curr_neighbours:
+                    NODE_IPS[self.base_port + node_id] = neighbours_available.get(node_id)
                 self.neighbours = NODE_IPS
             else:
                 print("✅ Lista de nodos sin cambios.", self.neighbours)
