@@ -264,8 +264,30 @@ class Node:
                     email TEXT,
                     phone TEXT,
                     last_update TEXT
+                    last_update TEXT
                 )
             """)
+            # Crear tabla de clientes
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS clients (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    name TEXT,
+                    email TEXT,
+                    phone TEXT,
+                    last_update TEXT
+                )
+            """)
+
+            # Crear tabla de guia de producto
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS guia (
+                    id_articulo INTEGER PRIMARY KEY AUTOINCREMENT,
+                    id_serie INTEGER,
+                    sucursal TEXT,
+                    id_cliente TEXT,
+                    last_update TEXT
+                )
+            """)  
             conn.commit()
             conn.close()
             print(f"[Node {self.id_node}] Database initialized.")
@@ -731,7 +753,7 @@ class Node:
         try:
             conn = sqlite3.connect(self.db_name)
             cursor = conn.cursor()
-            cursor.execute("SELECT id, name, quantity, price, last_updated FROM inventory")
+            cursor.execute("SELECT id, name, quantity, price, last_update FROM inventory")
             rows = cursor.fetchall()
             conn.close()
 
@@ -741,6 +763,38 @@ class Node:
                 print(f"ID: {row[0]}, Name: {row[1]}, Quantity: {row[2]}, Price: {row[3]}, Last Updated: {row[4]}")
         except Exception as e:
             print(f"[Node {self.id_node}] Error reading inventory: {e}")
+
+    def _update_inventory_ui(self):
+        """Maneja la inserción de items al inventario"""
+        try:
+            name = input("Enter product name: ").strip()
+            quantity = input("Enter quantity: ").strip()
+            price = input("Enter price: ").strip()
+            self.add_item_inventory(name, quantity, price)
+        except Exception as e:
+            print(f"Error: {e}")
+
+    def add_item_inventory(self, name, quantity, price):
+        """Agrega un producto al inventario y propaga la actualización a otros nodos"""
+        try:
+            conn = sqlite3.connect(self.db_name)
+            cursor = conn.cursor()
+            # Insertar cliente localmente
+            cursor.execute("""
+                INSERT INTO inventory (name, quantity, price, last_update)
+                VALUES (?, ?, ?, ?)
+            """, (name, quantity, price, datetime.now().isoformat()))
+            conn.commit()
+            client_id = cursor.lastrowid  # Obtener el ID del cliente recién agregado
+            conn.close()
+            print(f"[Node {self.id_node}] Product added: {name}")
+
+            # Propagar la actualización a otros nodos
+
+        except Exception as e:
+            print(f"[Node {self.id_node}] Error adding product to inventory: {e}")
+
+
 
     def update_inventory(self, item_id, quantity_change, propagate=True):
         """Actualiza la cantidad de un artículo en el inventario y propaga el cambio si es necesario"""
@@ -875,6 +929,25 @@ class Node:
             print(f"[Node {self.id_node}] Send error: {e}")
         
         return False
+    
+    
+#Nuevo metodo Guia de producto
+    def user_guide(self):
+        """Muestra Guia de producto"""
+        print(f'mostrar guia de producto')
+        try:
+            conn = sqlite3.connect(self.db_name)
+            cursor = conn.cursor()
+            cursor.execute("SELECT id_articulo, id_serie, sucursal, id_cliente, last_update FROM guia")
+            rows = cursor.fetchall()
+            conn.close()
+
+            print("\nGuia Producto:")
+            print("=" * 40)
+            for row in rows:
+                print(f"ID_Articulo: {row[0]}, ID_Serie: {row[1]}, Sucursal: {row[2]}, ID_cliente: {row[3]}, Last Updated: {row[4]}")
+        except Exception as e:
+            print(f"[Node {self.id_node}] Error reading product guide: {e}")
 
     def user_interface(self):
         """Interfaz de línea de comandos"""
@@ -901,10 +974,11 @@ class Node:
                 print("12. View client list")
                 print("--> Purchases")
                 print("13. Purchase an item (with mutual exclusion)")
+                print("14. Show Product guide")
                 print("--> ")
-                print("14. Start master election")  # Nueva opción
-                print("15. Distribute items")  # Nueva opción
-                print("16. Exit")
+                print("15. Start master election")  # Nueva opción
+                print("16. Distribute items")  # Nueva opción
+                print("17. Exit")
 
                 choice = input("Select option: ").strip()
 
@@ -935,10 +1009,12 @@ class Node:
                 elif choice == "13":
                     self._purchase_item_ui()
                 elif choice == "14":
-                    self.start_election()  # Llama al método para iniciar la elección
+                    self.user_guide()
                 elif choice == "15":
-                    self._distribute_items_ui()  # Llama al método para distribuir artículos
+                    self.start_election()  # Llama al método para iniciar la elección
                 elif choice == "16":
+                    self._distribute_items_ui()  # Llama al método para distribuir artículos
+                elif choice == "17":
                     print("Exiting...")
                     break
                 else:
@@ -1408,10 +1484,10 @@ if __name__ == "__main__":
     NODE_ID = int(os.getenv("NODE_ID", get_static_ip()[-1]))
     BASE_PORT = 5000
     NODE_IPS = {
-        5001: '192.168.100.61',
-        5002: '192.168.100.62',
-        5003: '192.168.100.63',
-        5004: '192.168.100.64'
+        5001: '192.168.10.131',
+        5002: '192.168.10.132',
+        5003: '192.168.10.133',
+        5004: '192.168.10.134'
     }
 
     server_ready = threading.Event()
