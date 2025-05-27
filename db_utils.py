@@ -101,4 +101,4 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     ensure_schema(args.db, data_dir=args.data_dir)
-    print("Done.")
+    print("Terminado.")
