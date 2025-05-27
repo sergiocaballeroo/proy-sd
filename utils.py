@@ -22,16 +22,16 @@ def ping_ip(ip):
   result = subprocess.run(["ping", "-c", "2", "-W", "1", ip], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
   return result.returncode == 0
 
-def update_neighbours(requester_ip, ips: dict):
+def update_neighbours(requester_ip, ips: list):
   """
   Funcion encargada de verificar a que vecinos tiene acceso un nodo al
   comienzo de su ejecucion.
   """
-  neighbours = {}
-  for node_id, ip in ips.items():
+  neighbours = []
+  for ip in ips:
     if ip != requester_ip and ping_ip(ip):
       print(f'Conexion disponible! ({ip})')
-      neighbours[node_id] = ip
+      neighbours.append(ip)
     else:
       print(f'{ip} no se encuentra disponible.')
   return neighbours

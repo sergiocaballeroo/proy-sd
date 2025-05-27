@@ -75,9 +75,10 @@ class Node:
                 except Exception as e:
                     print(f"[Nodo {self.id_node}] Error en servidor: {e}")
 
-    def send_message(self, message_dict):
+    def send_message(self, message_dict: dict):
         """Envía un mensaje a otro nodo"""
         try:
+
             dest_port = message_dict['destination']
             if dest_port == self.port:
                 print(f"[Nodo {self.id_node}] Advertencia: No se puede enviar un mensaje a si mismo.")
@@ -91,7 +92,9 @@ class Node:
             with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
                 s.settimeout(5.0)
 
+                print('Connecting...', (dest_ip, dest_port))
                 s.connect((dest_ip, dest_port))
+                print('Connected!')
 
                 message_dict['origin'] = self.id_node
                 message_dict['timestamp'] = datetime.now().isoformat()
@@ -101,8 +104,9 @@ class Node:
                 print(f"[Nodo {self.id_node}] Enviado a {dest_port}: {message_dict}")
                 return True
 
-        except ConnectionRefusedError:
+        except ConnectionRefusedError as e:
             print(f"[Nodo {self.id_node}] Error: Nodo {dest_port - self.base_port} no disponible")
+            print(e)
         except socket.timeout:
             print(f"[Nodo {self.id_node}] Error: Connection timeout with node {dest_port - self.base_port}")
         except Exception as e:
@@ -127,7 +131,7 @@ class Node:
                 print("Error: El mensaje no puede estar vacio.")
                 return
 
-            message = {
+            message: dict = {
                 'destination': dest_port,
                 'content': content
             }
@@ -149,7 +153,7 @@ class Node:
                 'origin': self.id_node,
                 'timestamp': datetime.now().isoformat()
             }
-            self.send_message({
+            self.send_message(self, {
                 'destination': self.base_port + origin,
                 'content': json.dumps(reply_message)
             })
@@ -270,7 +274,7 @@ class Node:
                 'origin': self.id_node,
                 'timestamp': datetime.now().isoformat()
             }
-            if self.send_message({
+            if self.send_message(self, {
                 'destination': port,
                 'content': json.dumps(message)
             }):
@@ -345,6 +349,7 @@ class Node:
                 # Parse main message
                 try:
                     message = json.loads(data)
+                    print('Message: ', message)
                 except json.JSONDecodeError:
                     print(f"[Nodo {self.id_node}] Invalid JSON message: {data}")
                     return
@@ -415,7 +420,7 @@ class Node:
                         'origin': self.id_node,
                         'timestamp': datetime.now().isoformat()
                     }
-                    self.send_message({
+                    self.send_message(self, {
                         'destination': self.base_port + origin,
                         'content': json.dumps(capacity_message)
                     })
@@ -732,27 +737,26 @@ class Node:
 
 # Diccionario inicial de los nodos esperados en el sistema.
 # Clave: ID de nodo, Valor: IP estatica del nodo.
-DEFAULT_IPS = {
-    1: '192.168.100.61',
-    2: '192.168.100.62',
-    3: '192.168.100.63',
-    4: '192.168.100.64'
-}
+DEFAULT_IPS = [
+    '192.168.100.61',
+    '192.168.100.62',
+    '192.168.100.63',
+    '192.168.100.64'
+]
 
 if __name__ == "__main__":
     # Toma el valor de la variable de entorno NODE_ID, si no se cuenta con valor, se determina con el ultimo
-    # digito de su IP estatica.
-    # Se da por entendido que los IDs de los nodos comenzaran desde el 1, 2, 3, en adelante.
+    # numero de su IP estatica.
     current_ip = utils.get_static_ip()
-    NODE_ID = int(os.getenv("NODE_ID", 1 if current_ip[-1] == '0' else current_ip[-1]))
+    NODE_ID = int(os.getenv("NODE_ID", current_ip.split('.')[-1]))
     print(f'Generando nodo con ID {NODE_ID} ({current_ip})...')
     BASE_PORT = 5000
     # Se identificarán los "nodos" disponibles al momento de la creación del nodo.
-    neighbours_available: dict = utils.update_neighbours(current_ip, DEFAULT_IPS)
+    neighbours_available: list = utils.update_neighbours(current_ip, DEFAULT_IPS)
 
     NODE_IPS = {}
-    for neighbour_id, node_ip in neighbours_available.items():
-        NODE_IPS[BASE_PORT + neighbour_id] = node_ip
+    for node_ip in neighbours_available:
+        NODE_IPS[node_ip.split('.')[-1]] = node_ip
 
     server_ready = threading.Event()
     node = Node(
