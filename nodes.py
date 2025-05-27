@@ -631,13 +631,6 @@ class Node:
         """Maneja mensajes COORDINATOR (nodo maestro)"""
         new_master_id = message['origin']
 
-        # Verificar si ya se procesó este mensaje
-        if hasattr(self, 'last_coordinator_message') and self.last_coordinator_message == message:
-            return  # Ignorar mensajes repetidos
-
-        # Actualizar el último mensaje procesado
-        self.last_coordinator_message = message
-
         print(
             f"[Nodo {self.id_node}] 🟢 CORDINADOR SELECCIONADO\n"
             f"   │ Nuevo coordinador: Node {new_master_id}\n"
