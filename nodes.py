@@ -415,6 +415,7 @@ class Node:
                     print(f"[Nodo {self.id_node}] Se envio stock actual del articulo {item_id} al Nodo {origin}.")
                 elif msg_type == 'PLAIN_TEXT':
                     ack_msg = {
+                        'type': 'ACK',
                         'origin': self.id_node,
                         'destination': origin,
                         'content': f"ACK: {json.dumps(message.get('content'))}",
@@ -424,6 +425,8 @@ class Node:
                         print(f"[Nodo {self.id_node}] ACK enviado a {origin}")
                     else:
                         print(f"[Nodo {self.id_node}] Error enviando ACK")
+                elif msg_type == 'ACK':
+                    print(f"[Nodo {self.id_node}] ACK recibido desde {message.get('origin')}")
 
             except KeyError as ke:
                 print(f"[Nodo {self.id_node}] Message format error: Missing key {ke}")
