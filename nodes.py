@@ -12,7 +12,7 @@ import time
 from pathlib import Path
 from db_utils import ensure_schema
 from utils import get_static_ip
-from modules import products as products_service
+from modules import products, clients
 
 class Node:
     def __init__(self, id_node, port, nodes_info, node_ip='0.0.0.0', server_ready_event=None, base_port=5000):
@@ -403,7 +403,7 @@ class Node:
 
                 elif msg_type == 'CLIENT_UPDATE':
                     # Handle client updates
-                    self.handle_client_update(content_data)
+                    clients.handle_client_update(self, content_data)
                 
                 elif msg_type == 'GET_CAPACITY':
                     item_id = content_data.get('item_id')
@@ -614,117 +614,11 @@ class Node:
     ############
     # CLIENTES
     ############
-    def view_clients(self):
-        """Muestra la lista de clientes"""
-        try:
-            conn = sqlite3.connect(self.db_name)
-            cursor = conn.cursor()
-            cursor.execute("SELECT id, name, email, phone, last_updated_at FROM clients")
-            rows = cursor.fetchall()
-            conn.close()
-
-            print("\nLista de clientes:")
-            print("=" * 40)
-            for row in rows:
-                print(f"ID: {row[0]}, Name: {row[1]}, Email: {row[2]}, Phone: {row[3]}, Last Updated: {row[4]}")
-        except Exception as e:
-            print(f"[Nodo {self.id_node}] Error leyendo clientes disponibles: {e}")
-
     def _view_clients(self):
-        """Interfaz para ver la lista de clientes"""
-        self.view_clients()
+        clients.view_clients(self)
 
-    def add_client(self, name, phone, email):
-        """Agrega un cliente a la base de datos y propaga la actualización a otros nodos"""
-        try:
-            conn = sqlite3.connect(self.db_name)
-            cursor = conn.cursor()
-            # Insertar cliente localmente
-            cursor.execute("""
-                INSERT INTO clients (name, phone, email, last_updated_at)
-                VALUES (?, ?, ?, ?)
-            """, (name, phone, email, datetime.now().isoformat()))
-            conn.commit()
-            client_id = cursor.lastrowid  # Obtener el ID del cliente recién agregado
-            conn.close()
-            print(f"[Nodo {self.id_node}] Cliente agregado: {name}")
-
-            # Propagar la actualización a otros nodos
-            self.propagate_client_update(client_id, name, phone, email)
-
-        except Exception as e:
-            print(f"[Nodo {self.id_node}] Error agregando cliente: {e}")
-    
     def _add_client_ui(self):
-        """Interfaz para agregar un cliente"""
-        try:
-            name = input("Enter client name: ").strip()
-            email = input("Enter client email: ").strip()
-            phone = input("Enter client phone: ").strip()
-            self.add_client(name, email, phone)
-        except Exception as e:
-            print(f"Error: {e}")
-
-    def propagate_client_update(self, client_id, name, phone, email):
-        """Propaga la actualización de un cliente a los demás nodos"""
-        update_message = {
-            'type': 'CLIENT_UPDATE',
-            'client_id': client_id,
-            'name': name,
-            'phone': phone,
-            'email': email,
-            'last_updated_at': datetime.now().isoformat(),
-            'origin': self.id_node
-        }
-
-        for port, ip in self.nodes_info.items():
-            try:
-                msg = {
-                    'destination': port,
-                    'content': json.dumps(update_message)
-                }
-                if self.send_message(msg):
-                    print(f"[Nodo {self.id_node}] Actualizacion de cliente enviada al Nodo {port - self.base_port}")
-            except Exception as e:
-                print(f"[Nodo {self.id_node}] Error enviando actualizacion de cliente al Nodo {port - self.base_port}: {e}")
-
-    def handle_client_update(self, message):
-        """Maneja una actualización de cliente recibida de otro nodo"""
-        try:
-            client_id = message['client_id']
-            name = message['name']
-            email = message['email']
-            phone = message['phone']
-            last_update = message['last_updated_at']
-
-            conn = sqlite3.connect(self.db_name)
-            cursor = conn.cursor()
-
-            # Verificar si el cliente ya existe
-            cursor.execute("SELECT id FROM clients WHERE id = ?", (client_id,))
-            result = cursor.fetchone()
-
-            if result:
-                # Actualizar cliente existente
-                cursor.execute("""
-                    UPDATE clients
-                    SET name = ?, phone = ?, email = ?, last_updated_at = ?
-                    WHERE id = ?
-                """, (name, phone, email, last_update, client_id))
-                print(f"[Nodo {self.id_node}] Cliente {client_id} actualizado.")
-            else:
-                # Insertar nuevo cliente
-                cursor.execute("""
-                    INSERT INTO clients (id, name, phone, email, last_updated_at)
-                    VALUES (?, ?, ?, ?, ?)
-                """, (client_id, name, phone, email, last_update))
-                print(f"[Nodo {self.id_node}] Cliente {client_id} agregado.")
-
-            conn.commit()
-            conn.close()
-
-        except Exception as e:
-            print(f"[Nodo {self.id_node}] Error durante actualizacion de cliente: {e}")
+        clients.add_client_ui(self)
 
     #####################
     # PRODUCTOS / ITEMS
@@ -740,7 +634,7 @@ class Node:
             stock = int(input("Unidades disponibles: "))
 
             product_data = { 'name': name, 'category': category, 'price': price, 'stock': stock}
-            products_service.create_product(self, product_data)
+            products.create_product(self, product_data)
         except ValueError:
             print("Entrada incorrecta. Por favor intenta de nuevo.")
 
@@ -752,7 +646,7 @@ class Node:
             price = float(input("Precio unitario: "))
 
             product_data = { 'name': name, 'category': category, 'price': price, 'id': product_id}
-            products_service.update_product(self, product_data)
+            products.update_product(self, product_data)
         except ValueError:
             print("Entrada incorrecta. Por favor intenta de nuevo.")
 
