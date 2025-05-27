@@ -1,7 +1,6 @@
 import sqlite3, datetime, json
-from nodes import Node
 
-def show_products(node: Node):
+def show_products(node):
     """Muestra el los productos registrados en nodo actual"""
     try:
         conn = sqlite3.connect(node.db_name)
@@ -17,7 +16,7 @@ def show_products(node: Node):
     except Exception as e:
         print(f"[Node {node.id_node}] Error durante el listado de productos: {e}")
 
-def create_product(node: Node, product_data):
+def create_product(node, product_data):
     """Funcion encargada de crear un producto y enviar su cambio al resto de nodos."""
     try:
         conn = sqlite3.connect(node.db_name)
@@ -38,7 +37,7 @@ def create_product(node: Node, product_data):
     except Exception as e:
         print(f"[Node {node.id_node}] Error durante la creacion del producto: {e}")
 
-def create_product_ui(node: Node):
+def create_product_ui(node):
     try:
         name = input("Nombre del producto: ")
         category = input("Categoria: ")
@@ -50,7 +49,7 @@ def create_product_ui(node: Node):
     except ValueError:
         print("Entrada incorrecta. Por favor intenta de nuevo.")
 
-def update_product(node: Node, product_data):
+def update_product(node, product_data):
     """Muestra el los productos registrados en nodo actual"""
     try:
         conn = sqlite3.connect(node.db_name)
@@ -70,7 +69,7 @@ def update_product(node: Node, product_data):
     except Exception as e:
         print(f"[Node {node.id_node}] Error durante la actualizacion del producto: {e}")
 
-def update_product_ui(node: Node):
+def update_product_ui(node):
     try:
         product_id = input("ID del producto a actualizar: ")
         name = input("Nombre del producto: ")
@@ -82,7 +81,7 @@ def update_product_ui(node: Node):
     except ValueError:
         print("Entrada incorrecta. Por favor intenta de nuevo.")
 
-def distribute_items(node: Node, item_id, total_quantity):
+def distribute_items(node, item_id, total_quantity):
     """Distribuye automáticamente los artículos entre las sucursales"""
     if not node.is_master:
         print(f"[Nodo {node.id_node}] Error: Solo el nodo maestro puede distribuir articulos.")
@@ -139,7 +138,7 @@ def distribute_items(node: Node, item_id, total_quantity):
 
     print(f"[Nodo {node.id_node}] Distribuicion del articulo {item_id} completada.")
 
-def distribute_items_ui(node: Node):
+def distribute_items_ui(node):
     """Interfaz para distribuir artículos"""
     try:
         item_id = int(input("Ingresa el ID del articulo a distribuir: "))
