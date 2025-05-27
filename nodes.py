@@ -15,24 +15,26 @@ import utils
 from modules import products, clients, inventories, purchases
 
 class Node:
-    def __init__(self, id_node: int, port: int, nodes_info: dict, node_ip='0.0.0.0', server_ready_event=None, base_port=5000):
+    def __init__(self, id_node: int, port: int, all_nodes: dict, static_ip: str, node_ip='0.0.0.0', base_port=5000, server_ready_event=None):
         """
         Args:
             id_node: Identificador único del nodo (1, 2, 3...)
-            port: Puerto de escucha
-            nodes_info: Diccionario {puerto: ip} de nodos disponibles
             node_ip: IP del nodo
-            server_ready_event: Evento para sincronización
+            port: Puerto de escucha
             base_port: Puerto base para cálculo de IDs
+            server_ready_event: Evento para sincronización
+            all_nodes: Arreglo de todos los nodos disponibles ['x.x.x.x', 'y.y.y.y', ...]
         """
         self.id_node = id_node
-        self.port = port
         self.ip = node_ip
-        self.nodes_info = nodes_info
+        self.static_ip = static_ip
+        self.port = port
+        self.base_port = base_port
+        self.all_nodes = all_nodes # Lista con las IPs de todos los nodos esperados.
+        self.neighbours = {} # Diccionario con las {node_id: static_id} de los nodos a los que si tiene acceso.
         self.messages = []
         self.server = None
         self.server_ready_event = server_ready_event
-        self.base_port = base_port
         self.db_name = f"node_{self.id_node}.db"
         self.clock = 0  # Reloj lógico Lamport
         self.request_queue = []  # Cola de solicitudes pendientes
@@ -49,6 +51,9 @@ class Node:
         ensure_schema(db_path=db_path, seeds_dir=db_seeds_dir)
         self.conn = sqlite3.connect(db_path, check_same_thread=False)
         self.is_master = False  # Indica si este nodo es el maestro
+
+        daemon_neighbours = threading.Thread(target=self.demon_check_neighbours, daemon=True)
+        daemon_neighbours.start()
 
     ########################
     # ACCIONES NODO LOCAL
@@ -74,6 +79,33 @@ class Node:
                     ).start()
                 except Exception as e:
                     print(f"[Nodo {self.id_node}] Error en servidor: {e}")
+    
+    def demon_check_neighbours(self, interval=15):
+        prev_neighbours = set()
+        while True:
+            # Se identificarán los "nodos" disponibles al momento de la creación del nodo.
+            neighbours_available: list = utils.update_neighbours(self.static_ip, self.all_nodes)
+            curr_neighbours = set(neighbours_available)
+
+            if curr_neighbours != prev_neighbours:
+                news = curr_neighbours - prev_neighbours
+                lost = prev_neighbours - curr_neighbours
+
+                for n in news:
+                    print(f"🟢 Nuevo nodo conectado: {n}")
+                for l in lost:
+                    print(f"🔴 Nodo desconectado: {l}")
+                
+                prev_neighbours = curr_neighbours
+
+                NODE_IPS = {}
+                for node_ip in curr_neighbours:
+                    NODE_IPS[self.base_port + int(node_ip.split('.')[-1])] = node_ip
+                self.neighbours = NODE_IPS
+                print(NODE_IPS)
+            else:
+                print("✅ Lista de nodos sin cambios.")
+            time.sleep(interval)
 
     def send_message(self, message_dict: dict):
         """Envía un mensaje a otro nodo"""
@@ -347,7 +379,6 @@ class Node:
                 # Parse main message
                 try:
                     message = json.loads(data)
-                    print('Mensaje: ', message)
                 except json.JSONDecodeError:
                     print(f"[Nodo {self.id_node}] Invalid JSON message: {data}")
                     return
@@ -737,22 +768,14 @@ if __name__ == "__main__":
     current_ip = utils.get_static_ip()
     NODE_ID = int(os.getenv("NODE_ID", current_ip.split('.')[-1]))
     print(f'Generando nodo con ID {NODE_ID} ({current_ip})...')
-    BASE_PORT = 5000
-    # Se identificarán los "nodos" disponibles al momento de la creación del nodo.
-    neighbours_available: list = utils.update_neighbours(current_ip, DEFAULT_IPS)
 
-    NODE_IPS = {}
-    for node_ip in neighbours_available:
-        NODE_IPS[BASE_PORT + int(node_ip.split('.')[-1])] = node_ip
-
-    print(NODE_IPS)
     server_ready = threading.Event()
     node = Node(
-        id_node=NODE_ID,
-        port=BASE_PORT + NODE_ID,
-        nodes_info=NODE_IPS,
-        server_ready_event=server_ready,
-        base_port=BASE_PORT
+        id_node = NODE_ID,
+        static_ip=current_ip,
+        port = 5000 + NODE_ID,
+        server_ready_event = server_ready,
+        all_nodes = DEFAULT_IPS,
     )
 
     threading.Thread(target=node.start_server, daemon=True).start()

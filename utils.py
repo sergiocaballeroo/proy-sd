@@ -19,7 +19,7 @@ def ping_ip(ip):
   Realiza un ping a una IP y devuelve True si responde, False si no.
   El ping solo envia 2 paquetes como maximo y con una espera de 1 segundos.
   """
-  result = subprocess.run(["ping", "-c", "2", "-W", "1", ip], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+  result = subprocess.run(["ping", "-c", "1", "-W", "1", ip], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
   return result.returncode == 0
 
 def update_neighbours(requester_ip, ips: list):
@@ -30,10 +30,7 @@ def update_neighbours(requester_ip, ips: list):
   neighbours = []
   for ip in ips:
     if ip != requester_ip and ping_ip(ip):
-      print(f'Conexion disponible! ({ip})')
       neighbours.append(ip)
-    else:
-      print(f'{ip} no se encuentra disponible.')
   return neighbours
 
 import json
