@@ -34,7 +34,6 @@ class Node:
         self.server_ready_event = server_ready_event
         self.base_port = base_port
         self.db_name = f"node_{self.id_node}.db"
-        self._init_db()
         self.clock = 0  # Reloj lógico Lamport
         self.request_queue = []  # Cola de solicitudes pendientes
         self.in_critical_section = False  # Indica si el nodo está en la sección crítica
@@ -54,58 +53,6 @@ class Node:
     ########################
     # ACCIONES NODO LOCAL
     ########################
-    def _init_db(self):
-        """Inicializa la base de datos y crea las tablas si no existen"""
-        try:
-            conn = sqlite3.connect(self.db_name)
-            cursor = conn.cursor()
-            # Crear tabla de mensajes
-            cursor.execute("""
-                CREATE TABLE IF NOT EXISTS messages (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    origin INTEGER,
-                    destination INTEGER,
-                    content TEXT,
-                    timestamp TEXT
-                )
-            """)
-            # Crear tabla de inventario
-            cursor.execute("""
-                CREATE TABLE IF NOT EXISTS inventory (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    name TEXT,
-                    quantity INTEGER,
-                    price REAL,
-                    last_update TEXT
-                )
-            """)
-            # Crear tabla de clientes
-            cursor.execute("""
-                CREATE TABLE IF NOT EXISTS clients (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    name TEXT,
-                    email TEXT,
-                    phone TEXT,
-                    last_update TEXT
-                    last_update TEXT
-                )
-            """)
-
-            # Crear tabla de guia de producto
-            cursor.execute("""
-                CREATE TABLE IF NOT EXISTS guia (
-                    id_articulo INTEGER PRIMARY KEY AUTOINCREMENT,
-                    id_serie INTEGER,
-                    sucursal TEXT,
-                    id_cliente TEXT,
-                    last_update TEXT
-                )
-            """)  
-            conn.commit()
-            conn.close()
-            print(f"[Nodo {self.id_node}] Base de datos inicializada.")
-        except Exception as e:
-            print(f"[Nodo {self.id_node}] Error inicializado BD: {e}")
 
     def start_server(self):
         """Inicia el servidor TCP para recibir mensajes"""
@@ -672,7 +619,7 @@ class Node:
         try:
             conn = sqlite3.connect(self.db_name)
             cursor = conn.cursor()
-            cursor.execute("SELECT id, name, email, phone, last_update FROM clients")
+            cursor.execute("SELECT id, name, email, phone, last_updated_at FROM clients")
             rows = cursor.fetchall()
             conn.close()
 
@@ -694,7 +641,7 @@ class Node:
             cursor = conn.cursor()
             # Insertar cliente localmente
             cursor.execute("""
-                INSERT INTO clients (name, phone, email, last_update)
+                INSERT INTO clients (name, phone, email, last_updated_at)
                 VALUES (?, ?, ?, ?)
             """, (name, phone, email, datetime.now().isoformat()))
             conn.commit()
@@ -726,7 +673,7 @@ class Node:
             'name': name,
             'phone': phone,
             'email': email,
-            'last_update': datetime.now().isoformat(),
+            'last_updated_at': datetime.now().isoformat(),
             'origin': self.id_node
         }
 
@@ -746,9 +693,9 @@ class Node:
         try:
             client_id = message['client_id']
             name = message['name']
-            email = message['email']  # Corregido: ahora se asigna correctamente
-            phone = message['phone']  # Corregido: ahora se asigna correctamente
-            last_update = message['last_update']
+            email = message['email']
+            phone = message['phone']
+            last_update = message['last_updated_at']
 
             conn = sqlite3.connect(self.db_name)
             cursor = conn.cursor()
@@ -761,14 +708,14 @@ class Node:
                 # Actualizar cliente existente
                 cursor.execute("""
                     UPDATE clients
-                    SET name = ?, phone = ?, email = ?, last_update = ?
+                    SET name = ?, phone = ?, email = ?, last_updated_at = ?
                     WHERE id = ?
                 """, (name, phone, email, last_update, client_id))
                 print(f"[Nodo {self.id_node}] Cliente {client_id} actualizado.")
             else:
                 # Insertar nuevo cliente
                 cursor.execute("""
-                    INSERT INTO clients (id, name, phone, email, last_update)
+                    INSERT INTO clients (id, name, phone, email, last_updated_at)
                     VALUES (?, ?, ?, ?, ?)
                 """, (client_id, name, phone, email, last_update))
                 print(f"[Nodo {self.id_node}] Cliente {client_id} agregado.")
@@ -883,7 +830,7 @@ class Node:
         try:
             conn = sqlite3.connect(self.db_name)
             cursor = conn.cursor()
-            cursor.execute("SELECT quantity FROM inventory WHERE id = ?", (item_id,))
+            cursor.execute("SELECT quantity FROM branch_stock WHERE id = ?", (item_id,))
             result = cursor.fetchone()
             conn.close()
             if result:
@@ -898,7 +845,7 @@ class Node:
         try:
             conn = sqlite3.connect(self.db_name)
             cursor = conn.cursor()
-            cursor.execute("SELECT id, name, quantity, price, last_update FROM inventory")
+            cursor.execute("SELECT id, item_id, quantity, last_updated_at FROM branch_stock")
             rows = cursor.fetchall()
             conn.close()
 
@@ -946,7 +893,7 @@ class Node:
         try:
             conn = sqlite3.connect(self.db_name)
             cursor = conn.cursor()
-            cursor.execute("SELECT quantity FROM inventory WHERE id = ?", (item_id,))
+            cursor.execute("SELECT quantity FROM branch_stock WHERE item_id = ?", (item_id,))
             result = cursor.fetchone()
             if result:
                 new_quantity = result[0] + quantity_change
@@ -954,9 +901,9 @@ class Node:
                     print(f"[Nodo {self.id_node}] Error: No hay unidades suficientes del articulo {item_id}")
                     return False
                 cursor.execute("""
-                    UPDATE inventory
-                    SET quantity = ?, last_updated = ?
-                    WHERE id = ?
+                    UPDATE branch_stock
+                    SET quantity = ?, last_updated_at = ?
+                    WHERE item_id = ?
                 """, (new_quantity, datetime.now().isoformat(), item_id))
                 conn.commit()
                 print(f"[Nodo {self.id_node}] Inventario actualizado para el articulo {item_id}")
@@ -968,9 +915,9 @@ class Node:
                         print(f"[Nodo {self.id_node}] Descartando cambios en inventario para el articulo {item_id}")
                         # Rollback: restaurar cantidad anterior
                         cursor.execute("""
-                            UPDATE inventory
-                            SET quantity = ?, last_updated = ?
-                            WHERE id = ?
+                            UPDATE branch_stock
+                            SET quantity = ?, last_updated_at = ?
+                            WHERE item_id = ?
                         """, (result[0], datetime.now().isoformat(), item_id))
                         conn.commit()
                         conn.close()
@@ -983,20 +930,20 @@ class Node:
             print(f"[Nodo {self.id_node}] Error actualizando inventario: {e}")
             return False
 
-    def add_item_inventory(self, name, quantity, price):
+    def add_item_inventory(self, item_id, quantity):
         """Agrega un producto al inventario y propaga la actualización a otros nodos"""
         try:
             conn = sqlite3.connect(self.db_name)
             cursor = conn.cursor()
             # Insertar cliente localmente
             cursor.execute("""
-                INSERT INTO inventory (name, quantity, price, last_update)
+                INSERT INTO branch_stock (branch_id, item_id, quantity, last_updated_at)
                 VALUES (?, ?, ?, ?)
-            """, (name, quantity, price, datetime.now().isoformat()))
+            """, (self.id_node, item_id, quantity, datetime.now().isoformat()))
             conn.commit()
             client_id = cursor.lastrowid  # Obtener el ID del cliente recién agregado
             conn.close()
-            print(f"[Nodo {self.id_node}] Producto agregado: {name}")
+            print(f"[Nodo {self.id_node}] Producto agregado: {item_id}")
 
             # Propagar la actualización a otros nodos
 
@@ -1031,7 +978,7 @@ class Node:
     ######################
     # COMPRA DE PRODUCTOS
     ######################
-    def _purchase_item_ui(self):
+    def _create_purchase_ui(self):
         """Interfaz para comprar un artículo con exclusión mutua"""
         try:
             item_id = int(input("Enter the item ID to purchase: "))
@@ -1054,22 +1001,23 @@ class Node:
             print("Entrada invalida. Por favor ingresa valores numericos.")
 
     #Nuevo metodo Guia de producto
-    def user_guide(self):
-        """Muestra Guia de producto"""
-        print(f'mostrar guia de producto')
+    def show_purchases(self):
+        """Muestra lista de compras aplicadas en la sucursal."""
         try:
             conn = sqlite3.connect(self.db_name)
             cursor = conn.cursor()
-            cursor.execute("SELECT id_articulo, id_serie, sucursal, id_cliente, last_update FROM guia")
+            cursor.execute("" \
+                "SELECT purchase_id, item_id, branch_id, client_id, quantity, delivery_guide, created_at FROM purchases" \
+            "")
             rows = cursor.fetchall()
             conn.close()
 
-            print("\nGuia Producto:")
+            print("\nCompras en esta sucursal:")
             print("=" * 40)
             for row in rows:
-                print(f"ID_Articulo: {row[0]}, ID_Serie: {row[1]}, Sucursal: {row[2]}, ID_cliente: {row[3]}, Last Updated: {row[4]}")
+                print(f"ID Compra: {row[0]}, Producto: {row[1]}, Sucursal: {row[2]}, Cliente: {row[3]}, Cantidad: {row[4]}, Guia de envio: {row[5]}, Fecha de creacion: {row[6]}")
         except Exception as e:
-            print(f"[Nodo {self.id_node}] Error obteniendo guia de envio: {e}")
+            print(f"[Nodo {self.id_node}] Error obteniendo lista de compras: {e}")
 
     #######################
     # INTERFAZ DE USUARIO
@@ -1092,20 +1040,21 @@ class Node:
                 print("\t--> Inventario <--")
                 print("6. Mostrar inventario")
                 print("\t--> Compras <--")
-                print("7. Realizar una compra") # Método que integra exclusión mutua.
+                print("7. Ver compras")
+                print("8. Realizar una compra") # Método que integra exclusión mutua.
                 print('\nEXTRAS')
                 print("=" * 40)
                 print("\t--> Nodo actual <--")
-                print("8. Enviar mensaje")
-                print("9. Ver historial de mensajes")
-                print("10. Exportar historial de mensajes")
-                print("11. Ver mensajes de BD")
+                print("400. Enviar mensaje")
+                print("401. Ver historial de mensajes")
+                print("402. Exportar historial de mensajes")
+                print("403. Ver mensajes de BD")
                 print("\t--> Opciones para realizar pruebas <--")
-                print("12. Actualizar inventario")
-                print("13. FIX: Show Product guide")
-                print("14. FIX: Sync inventory with other nodes")
-                print("15. FIX: Start master election")
-                print("16. FIX: Distribute items")
+                print("404. Actualizar inventario")
+                print("405. FIX: Show Product guide")
+                print("406. FIX: Sync inventory with other nodes")
+                print("407. FIX: Start master election")
+                print("408. FIX: Distribute items")
                 print("\nSALIR")
                 print("=" * 40)
                 print("99. Salir \n")
@@ -1126,25 +1075,27 @@ class Node:
                 elif choice == "6":
                     self.show_inventory()
                 elif choice == "7":
-                    self._purchase_item_ui()
-                # Opciones extras
+                    self.show_purchases()
                 elif choice == "8":
+                    self._create_purchase_ui()
+                # Opciones extras
+                elif choice == "400":
                     self._send_message_ui()
-                elif choice == "9":
+                elif choice == "401":
                     self._show_history()
-                elif choice == "10":
+                elif choice == "402":
                     self.export_history()
-                elif choice == "11":
+                elif choice == "403":
                     self._show_db_messages()
-                elif choice == "12":
+                elif choice == "404":
                     self._update_inventory_ui()
-                elif choice == "13":
+                elif choice == "405":
                     self.user_guide()
-                elif choice == "14":
+                elif choice == "406":
                     self.sync_inventory()
-                elif choice == "15":
+                elif choice == "407":
                     self.start_election()  # Llama al método para iniciar la elección
-                elif choice == "16":
+                elif choice == "408":
                     self._distribute_items_ui()  # Llama al método para distribuir artículos
                 elif choice == "99":
                     print("Saliendo...")

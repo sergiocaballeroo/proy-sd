@@ -19,34 +19,55 @@ from datetime import datetime
 SCHEMA_SQL: Final[str] = """
 PRAGMA foreign_keys = ON;
 
+CREATE TABLE IF NOT EXISTS messages (
+    id          INTEGER   PRIMARY KEY AUTOINCREMENT,
+    origin      INTEGER   NOT NULL,
+    destination INTEGER   NOT NULL,
+    content     TEXT      NOT NULL,
+    timestamp   TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
 CREATE TABLE IF NOT EXISTS items (
-    id          INTEGER PRIMARY KEY AUTOINCREMENT,
-    name        TEXT    NOT NULL,
-    category    TEXT    NOT NULL,
-    price       REAL    NOT NULL,
-    stock   INTEGER NOT NULL,
-    tax_rate    REAL    NOT NULL DEFAULT 0.16,
-    last_update TEXT    NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    id              INTEGER   PRIMARY KEY AUTOINCREMENT,
+    name            TEXT      NOT NULL,
+    category        TEXT      NOT NULL,
+    price           REAL      NOT NULL,
+    stock           INTEGER   NOT NULL,
+    tax_rate        REAL      NOT NULL DEFAULT 0.16,
+    created_at      TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    last_updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
 CREATE TABLE IF NOT EXISTS branch_stock (
-    branch_id   INTEGER,
-    item_id     INTEGER,
-    quantity    INTEGER,
-    last_update TEXT,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    branch_id       INTEGER   NOT NULL,
+    item_id         INTEGER   NOT NULL,
+    quantity        INTEGER   NOT NULL,
+    created_at      TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    last_updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     PRIMARY KEY(branch_id, item_id),
     FOREIGN KEY(item_id) REFERENCES items(id)
 );
 
 CREATE TABLE IF NOT EXISTS clients (
-    id          INTEGER PRIMARY KEY,
-    name        TEXT NOT NULL,
-    phone       TEXT,
-    email       TEXT,
-    last_update TEXT,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    id              INTEGER   PRIMARY KEY AUTOINCREMENT,
+    name            TEXT      NOT NULL,
+    phone           TEXT,
+    email           TEXT,
+    created_at      TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    last_updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS purchases (
+    purchase_id     INTEGER   PRIMARY KEY AUTOINCREMENT,
+    item_id         INTEGER   NOT NULL,
+    quantity        INTEGER   NOT NULL,
+    branch_id       INTEGER   NOT NULL,
+    client_id       TEXT      NOT NULL,
+    delivery_guide  TEXT      NOT NULL,
+    created_at      TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    last_updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY(item_id) REFERENCES items(id),
+    FOREIGN KEY(client_id) REFERENCES clients(id)
 );
 """
 

@@ -1,4 +1,4 @@
-id,name,phone,email,last_update
+id,name,phone,email,last_updated_at
 1,Juan Pérez,5518575385,juan.perez@gmail.com,2025-05-25T05:11:39
 2,María García,5576725367,maria.garcia@gmail.com,2025-05-25T05:11:39
 3,Luis Martínez,5516257211,luis.martinez@yahoo.com,2025-05-25T05:11:39

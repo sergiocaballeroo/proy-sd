@@ -1,4 +1,4 @@
-branch_id,item_id,quantity,last_update
+branch_id,item_id,quantity,last_updated_at
 1,1,35,2025-05-25T05:28:37
 2,1,25,2025-05-25T05:28:37
 3,1,4,2025-05-25T05:28:37
