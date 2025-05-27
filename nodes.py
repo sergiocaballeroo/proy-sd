@@ -94,6 +94,7 @@ class Node:
 
                 s.connect((dest_ip, dest_port))
 
+                message_dict['type'] = 'PLAIN_TEXT'
                 message_dict['origin'] = self.id_node
                 message_dict['timestamp'] = datetime.now().isoformat()
 
@@ -346,34 +347,23 @@ class Node:
                 # Parse main message
                 try:
                     message = json.loads(data)
-                    print('\nMessage: ', message)
+                    print('Mensaje: ', message)
                 except json.JSONDecodeError:
                     print(f"[Nodo {self.id_node}] Invalid JSON message: {data}")
                     return
 
-                # Process content field
-                content = message.get('content', '')
-                content_data = None
-
                 # Parse content if it's a JSON string
-                if isinstance(content, str):
-                    try:
-                        content_data = json.loads(content)
-                        message['content'] = content_data  # Replace with parsed dict
-                    except json.JSONDecodeError:
-                        content_data = content  # Keep as string
-                elif isinstance(content, dict):
-                    content_data = content
+                if utils.is_valid_json(message.get('content')):
+                    message['content'] = json.loads(message.get('content'))
 
-                print(content_data)
                 # Ensure content_data is a dictionary
-                if not isinstance(content_data, dict):
-                    print(f"[Nodo {self.id_node}] Invalid content format: {content_data}")
+                if not isinstance(message, dict):
+                    print(f"[Nodo {self.id_node}] Invalid content format: {message}")
                     return
 
                 # Extract message details
-                msg_type = content_data.get('type')
-                origin = content_data.get('origin')
+                msg_type = message.get('type')
+                origin = message.get('origin')
 
                 # Store parsed message (with content as dict)
                 self.messages.append(message)
@@ -381,21 +371,21 @@ class Node:
 
                 # Print formatted message
                 hour = datetime.fromisoformat(message['timestamp']).strftime("%H:%M:%S")
-                print(f"[Nodo {self.id_node}] Recibido de {origin} a las {hour}: {content_data}")
+                print(f"[Nodo {self.id_node}] Recibido de {origin} a las {hour}: {message}")
 
                 # Handle message types
                 if msg_type == 'COORDINATOR':
-                    self.handle_coordinator_message(content_data)
+                    self.handle_coordinator_message(message)
 
                 elif msg_type == 'ELECTION':
-                    self.handle_election_message(content_data)
+                    self.handle_election_message(message)
 
                 elif msg_type == 'REPLY':
-                    self.handle_reply(content_data)
+                    self.handle_reply(message)
 
                 elif msg_type == 'INVENTORY_UPDATE':
-                    item_id = content_data.get('item_id')
-                    new_quantity = content_data.get('new_quantity')
+                    item_id = message.get('content').get('item_id')
+                    new_quantity = message.get('content').get('new_quantity')
                     if item_id and new_quantity:
                         self._update_inventory(
                             item_id,
@@ -406,10 +396,10 @@ class Node:
 
                 elif msg_type == 'CLIENT_UPDATE':
                     # Handle client updates
-                    clients.handle_client_update(self, content_data)
+                    clients.handle_client_update(self, message)
                 
                 elif msg_type == 'GET_CAPACITY':
-                    item_id = content_data.get('item_id')
+                    item_id = message.get('content').get('item_id')
                     current_quantity = self._get_item_quantity(item_id)
                     capacity_message = {
                         'type': 'CAPACITY_RESPONSE',
@@ -423,21 +413,17 @@ class Node:
                         'content': json.dumps(capacity_message)
                     })
                     print(f"[Nodo {self.id_node}] Se envio stock actual del articulo {item_id} al Nodo {origin}.")
-
-                # Send ACK
-                if not str(content).startswith("ACK:"):
+                elif msg_type == 'PLAIN_TEXT':
                     ack_msg = {
                         'origin': self.id_node,
-                        'destination': self.base_port + origin,
-                        'content': f"ACK: {json.dumps(content_data)}",
+                        'destination': origin,
+                        'content': f"ACK: {json.dumps(message.get('content'))}",
                         'timestamp': datetime.now().isoformat()
                     }
                     if self.send_message(ack_msg):
                         print(f"[Nodo {self.id_node}] ACK enviado a {origin}")
                     else:
                         print(f"[Nodo {self.id_node}] Error enviando ACK")
-                else:
-                    return
 
             except KeyError as ke:
                 print(f"[Nodo {self.id_node}] Message format error: Missing key {ke}")

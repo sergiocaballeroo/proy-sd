@@ -35,3 +35,11 @@ def update_neighbours(requester_ip, ips: list):
     else:
       print(f'{ip} no se encuentra disponible.')
   return neighbours
+
+import json
+def is_valid_json(text: str):
+  try:
+    json.loads(text)
+    return True
+  except json.JSONDecodeError:
+    return False
