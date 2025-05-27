@@ -119,11 +119,9 @@ class Node:
         # Si existe el maestro, verificar si sigue activo.
         # Si no hay maestro o el maestro se detuvo, identificar nodos con IDs mayores
         higher_nodes = [node_id for node_id in self.neighbours.keys() if node_id > self.port]
-        if not self.master and higher_nodes:
+        if not self.master:
             print(f'🚨 No hay referencia de nodo maestro. ({self.master})')
             self.start_election(higher_nodes)
-        if not higher_nodes and not self.master:
-            self.become_master()
         elif not higher_nodes and self.master == self.id_node:
             print(f'🗿 Te mantienes como coordinador. ({self.master})')
         elif higher_nodes and self.master == self.id_node:
@@ -570,7 +568,7 @@ class Node:
         self.is_master = True  # Este nodo ahora es el maestro
         self.master = self.id_node
         print(
-            f"\n[Nodo {self.id_node}] 🎉 NODO MAESTRO SELECCIONADO\n"
+            f"\n[Nodo {self.id_node}] 🎉 AHORA ERES EL NODO MAESTRO\n"
             f"   │ Reloj actual: {self.clock}\n"
             f"   │ Momento de eleccion: {datetime.now().isoformat()}\n"
             f"   │ Notificando a nodos: {list(self.neighbours.keys())}\n"
@@ -771,6 +769,7 @@ class Node:
 # Diccionario inicial de los nodos esperados en el sistema.
 # Clave: ID de nodo, Valor: IP estatica del nodo.
 DEFAULT_IPS = [
+    '192.168.100.100',
     '192.168.100.61',
     '192.168.100.62',
     '192.168.100.63',
