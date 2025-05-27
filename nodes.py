@@ -38,8 +38,6 @@ class Node:
         self.neighbours = {} # Diccionario con las {node_id: static_id} de los nodos a los que si tiene acceso.
         self.messages = []
         self.server = None
-        self.neighbours_ready_event = neighbours_ready_event
-        self.server_ready_event = server_ready_event
         self.db_name = f"node_{self.id_node}.db"
         self.clock = 0  # Reloj lógico Lamport
         self.request_queue = []  # Cola de solicitudes pendientes
@@ -55,7 +53,11 @@ class Node:
         db_seeds_dir = Path(__file__).resolve().parent / 'seeds'
         ensure_schema(db_path=db_path, seeds_dir=db_seeds_dir)
         self.conn = sqlite3.connect(db_path, check_same_thread=False)
-        self.is_master = False  # Indica si este nodo es el maestro
+        self.is_master = False  # Debe existir al menos una eleccion para encontrar el maestro.
+        self.master = None  # Al inicar el nodo, no tiene referencia de quien es el maestro.
+
+        self.neighbours_ready_event = neighbours_ready_event
+        self.server_ready_event = server_ready_event
 
     ########################
     # ACCIONES NODO LOCAL
@@ -105,10 +107,30 @@ class Node:
                 for node_ip in curr_neighbours:
                     NODE_IPS[self.base_port + int(node_ip.split('.')[-1])] = node_ip
                 self.neighbours = NODE_IPS
-                self.neighbours_ready_event.set()
             else:
                 print("✅ Lista de nodos sin cambios.", self.neighbours)
+            # Se debe ejecutar el proceso de busqueda de vecinos almenos una vez para pasar al siguiente paso.
+            self.neighbours_ready_event.set()
+            # Independientemente de los cambios en los vecinos, se revisa si sigue activo el nodo maestro.
+            self.check_master()
             time.sleep(interval)
+
+    def check_master(self):
+        # Si existe el maestro, verificar si sigue activo.
+        # Si no hay maestro o el maestro se detuvo, identificar nodos con IDs mayores
+        higher_nodes = [node_id for node_id in self.neighbours.keys() if node_id > self.port]
+        if not higher_nodes and not self.master:
+            self.become_master()
+        elif not higher_nodes and self.master == self.id_node:
+            print(f'🗿 Te mantienes como coordinador. ({self.master})')
+        elif higher_nodes and self.master == self.id_node:
+            print(f'💎 Nuevo(s) candidato(s) a coordinador. ({higher_nodes})')
+            self.start_election(higher_nodes)
+        elif self.master and self.master != self.id_node and utils.ping_ip(self.neighbours.get(self.master)):
+            print(f'⭐️ El nodo maestro sigue sin cambios. ({self.master})')
+        elif self.master != self.id_node and not self.neighbours.get(self.master):
+            print(f'🚨 Nodo maestro desconectado. ({self.master})')
+            self.start_election(self, higher_nodes)
 
     ########################
     # ACCIONES ENTRE NODOS
@@ -212,10 +234,12 @@ class Node:
                 print(f"[Nodo {self.id_node}] Critical error: {str(e)}")
 
     def send_message(self, message_dict: dict):
-        """Envía un mensaje a otro nodo"""
+        """
+        Envía un mensaje a otro nodo
+        message_dict: Diccionario con la estructura {destination: int, content: JSON}
+        """
         try:
-
-            dest_port = message_dict['destination'] + self.base_port
+            dest_port = message_dict['destination']
             if dest_port == self.port:
                 print(f"[Nodo {self.id_node}] Advertencia: No se puede enviar un mensaje a si mismo.")
                 return False
@@ -470,19 +494,15 @@ class Node:
             return False
 
     # ELECCIÓN DE NODO MAESTRO
-    def start_election(self):
+    def start_election(self, higher_nodes):
         """Inicia el proceso de elección (algoritmo de Bully)"""
         print(f"[Nodo {self.id_node}] Comenzando eleccion...")
         self.increment_clock()
 
-        # Identificar nodos con IDs mayores
-        higher_nodes = [port for port in self.neighbours.keys() if port > self.port]
-        higher_nodes_ids = [port - self.base_port for port in higher_nodes]
-
         print(
             f"\n[Nodo {self.id_node}] ⚡ ELECCION INICIADA\n"
             f"   │ Reloj actual: {self.clock}\n"
-            f"   │ Contactando nodos: {higher_nodes_ids}\n"
+            f"   │ Contactando nodos: {higher_nodes}\n"
             f"   └── Esperando respuestas (5s timeout)..."
         )
 
@@ -493,7 +513,7 @@ class Node:
             'clock': self.clock,
             'timestamp': datetime.now().isoformat()
         }
-        for port in higher_nodes:
+        for port in [self.base_port + node_id for node_id in higher_nodes]:
             self.send_message({
                 'destination': port,
                 'content': json.dumps(election_message)
@@ -545,6 +565,7 @@ class Node:
     def become_master(self):
         """Se declara como maestro y notifica a los demás nodos"""
         self.is_master = True  # Este nodo ahora es el maestro
+        self.master = self.id_node
         print(
             f"\n[Nodo {self.id_node}] 🎉 NODO MAESTRO SELECCIONADO\n"
             f"   │ Reloj actual: {self.clock}\n"
@@ -623,7 +644,7 @@ class Node:
             f"   │ Timestamp: {message['timestamp']}\n"
         )
         self.is_master = (self.id_node == new_master_id)  # Solo el nuevo maestro tiene is_master = True
-        self.current_master = new_master_id
+        self.master = new_master_id
 
     ############
     # CLIENTES
@@ -766,7 +787,7 @@ if __name__ == "__main__":
         id_node = NODE_ID,
         static_ip=current_ip,
         port = 5000 + NODE_ID,
-        all_nodes = DEFAULT_IPS,
+        all_nodes = {int(ip.split('.')[-1]): ip for ip in DEFAULT_IPS},
         neighbours_ready_event = neighbours_ready,
         server_ready_event = server_ready,
     )

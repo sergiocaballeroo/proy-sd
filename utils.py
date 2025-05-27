@@ -22,15 +22,15 @@ def ping_ip(ip):
   result = subprocess.run(["ping", "-c", "1", "-W", "1", ip], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
   return result.returncode == 0
 
-def update_neighbours(requester_ip, ips: list):
+def update_neighbours(requester_ip, ips: dict):
   """
   Funcion encargada de verificar a que vecinos tiene acceso un nodo al
   comienzo de su ejecucion.
   """
-  neighbours = []
-  for ip in ips:
+  neighbours = {}
+  for node_id, ip in ips.items():
     if ip != requester_ip and ping_ip(ip):
-      neighbours.append(ip)
+      neighbours[node_id] = ip
   return neighbours
 
 import json
