@@ -514,7 +514,7 @@ class Node:
             'clock': self.clock,
             'timestamp': datetime.now().isoformat()
         }
-        for node_id in [self.base_port + node_id for node_id in higher_nodes]:
+        for node_id in [node_id for node_id in higher_nodes]:
             self.send_message({
                 'destination': node_id,
                 'content': json.dumps(election_message)
