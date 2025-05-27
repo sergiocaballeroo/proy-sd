@@ -1,4 +1,5 @@
-import datetime, json, sqlite3
+import json, sqlite3
+from datetime import  datetime;
 
 def view_clients(node):
   """Muestra la lista de clientes"""
@@ -56,7 +57,7 @@ def add_client(node, name, phone, email):
     print(f"[Nodo {node.id_node}] Cliente agregado: {name}")
 
     # Propagar la actualización a otros nodos
-    propagate_client_update(client_id, name, phone, email)
+    propagate_client_update(node, client_id, name, phone, email)
   except Exception as e:
     print(f"[Nodo {node.id_node}] Error agregando cliente: {e}")
 
