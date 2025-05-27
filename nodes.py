@@ -15,7 +15,11 @@ import utils
 from modules import products, clients, inventories, purchases
 
 class Node:
-    def __init__(self, id_node: int, port: int, all_nodes: dict, static_ip: str, node_ip='0.0.0.0', base_port=5000, server_ready_event=None):
+    def __init__(
+            self, id_node: int, port: int, all_nodes: dict, static_ip: str,
+            node_ip='0.0.0.0', base_port=5000,
+            server_ready_event=None, neighbours_ready_event=None
+        ):
         """
         Args:
             id_node: Identificador único del nodo (1, 2, 3...)
@@ -34,6 +38,7 @@ class Node:
         self.neighbours = {} # Diccionario con las {node_id: static_id} de los nodos a los que si tiene acceso.
         self.messages = []
         self.server = None
+        self.neighbours_ready_event = neighbours_ready_event
         self.server_ready_event = server_ready_event
         self.db_name = f"node_{self.id_node}.db"
         self.clock = 0  # Reloj lógico Lamport
@@ -51,9 +56,6 @@ class Node:
         ensure_schema(db_path=db_path, seeds_dir=db_seeds_dir)
         self.conn = sqlite3.connect(db_path, check_same_thread=False)
         self.is_master = False  # Indica si este nodo es el maestro
-
-        daemon_neighbours = threading.Thread(target=self.demon_check_neighbours, daemon=True)
-        daemon_neighbours.start()
 
     ########################
     # ACCIONES NODO LOCAL
@@ -80,7 +82,7 @@ class Node:
                 except Exception as e:
                     print(f"[Nodo {self.id_node}] Error en servidor: {e}")
     
-    def demon_check_neighbours(self, interval=15):
+    def daemon_check_neighbours(self, interval=15):
         prev_neighbours = set()
         while True:
             # Se identificarán los "nodos" disponibles al momento de la creación del nodo.
@@ -102,9 +104,9 @@ class Node:
                 for node_ip in curr_neighbours:
                     NODE_IPS[self.base_port + int(node_ip.split('.')[-1])] = node_ip
                 self.neighbours = NODE_IPS
-                print(NODE_IPS)
+                self.neighbours_ready_event.set()
             else:
-                print("✅ Lista de nodos sin cambios.")
+                print("✅ Lista de nodos sin cambios.", self.neighbours)
             time.sleep(interval)
 
     def send_message(self, message_dict: dict):
@@ -769,15 +771,21 @@ if __name__ == "__main__":
     NODE_ID = int(os.getenv("NODE_ID", current_ip.split('.')[-1]))
     print(f'Generando nodo con ID {NODE_ID} ({current_ip})...')
 
+    neighbours_ready = threading.Event()
     server_ready = threading.Event()
     node = Node(
         id_node = NODE_ID,
         static_ip=current_ip,
         port = 5000 + NODE_ID,
-        server_ready_event = server_ready,
         all_nodes = DEFAULT_IPS,
+        neighbours_ready_event = neighbours_ready,
+        server_ready_event = server_ready,
     )
 
+    # Se realiza la busqueda de los nodos vecinos al menos 1 vez antes de que inicie el servidor.
+    threading.Thread(target=node.daemon_check_neighbours, daemon=True).start()
+    neighbours_ready.wait()
+    # Ya que existen sus nodos vecinos, se comienzan a pedir instrucciones.
     threading.Thread(target=node.start_server, daemon=True).start()
     server_ready.wait()
     node.user_interface()
