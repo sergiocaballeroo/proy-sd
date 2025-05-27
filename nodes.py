@@ -272,8 +272,6 @@ class Node:
         except Exception as e:
             print(f"[Node {self.id_node}] DB init error: {e}")
 
-
-
     def handle_connection(self, conn, addr):
         """Handles incoming connections"""
         with conn:
@@ -826,7 +824,6 @@ class Node:
         except Exception as e:
             print(f"[Node {self.id_node}] DB insert error: {e}")
 
-    
     def _show_history(self):
         """Muestra el historial de mensajes desde la base de datos"""
         try:
@@ -843,7 +840,6 @@ class Node:
 
         except Exception as e:
             print(f"[Node {self.id_node}] Error reading history: {e}")
-
 
     def send_message(self, message_dict):
         """Envía un mensaje a otro nodo"""
@@ -879,7 +875,6 @@ class Node:
             print(f"[Node {self.id_node}] Send error: {e}")
         
         return False
-
 
     def user_interface(self):
         """Interfaz de línea de comandos"""
@@ -944,8 +939,6 @@ class Node:
                 elif choice == "15":
                     self._distribute_items_ui()  # Llama al método para distribuir artículos
                 elif choice == "16":
-                    self._distribute_items_ui()  # Llama al método para distribuir artículos
-                elif choice == "17":
                     print("Exiting...")
                     break
                 else:
@@ -954,27 +947,6 @@ class Node:
             except Exception as e:
                 print(f"Error: {e}")
 
-    def add_client(self, name, phone, email):
-        """Agrega un cliente a la base de datos y propaga la actualización a otros nodos"""
-        try:
-            conn = sqlite3.connect(self.db_name)
-            cursor = conn.cursor()
-            # Insertar cliente localmente
-            cursor.execute("""
-                INSERT INTO clients (name, phone, email, last_update)
-                VALUES (?, ?, ?, ?)
-            """, (name, phone, email, datetime.now().isoformat()))
-            conn.commit()
-            client_id = cursor.lastrowid  # Obtener el ID del cliente recién agregado
-            conn.close()
-            print(f"[Node {self.id_node}] Client added: {name}")
-
-            # Propagar la actualización a otros nodos
-            self.propagate_client_update(client_id, name, phone, email)
-
-        except Exception as e:
-            print(f"[Node {self.id_node}] Error adding client: {e}")
-    
     def propagate_client_update(self, client_id, name, phone, email):
         """Propaga la actualización de un cliente a los demás nodos"""
         update_message = {
@@ -997,22 +969,6 @@ class Node:
                     print(f"[Node {self.id_node}] Client update sent to Node {port - self.base_port}")
             except Exception as e:
                 print(f"[Node {self.id_node}] Error sending client update to Node {port - self.base_port}: {e}")
-
-    def view_clients(self):
-        """Muestra la lista de clientes"""
-        try:
-            conn = sqlite3.connect(self.db_name)
-            cursor = conn.cursor()
-            cursor.execute("SELECT id, name, email, phone, last_update FROM clients")
-            rows = cursor.fetchall()
-            conn.close()
-
-            print("\nClient List:")
-            print("=" * 40)
-            for row in rows:
-                print(f"ID: {row[0]}, Name: {row[1]}, Email: {row[2]}, Phone: {row[3]}, Last Updated: {row[4]}")
-        except Exception as e:
-            print(f"[Node {self.id_node}] Error reading clients: {e}")
 
     def _add_client_ui(self):
         """Interfaz para agregar un cliente"""
@@ -1135,83 +1091,6 @@ class Node:
         """Interfaz para ver la lista de clientes"""
         self.view_clients()
 
-    def two_phase_commit(self, prepare_message, commit_message, abort_message):
-        """Implementa el protocolo de 2PC"""
-        try:
-            # Fase 1: PREPARE
-            prepare_responses = 0
-            for port, ip in self.nodes_info.items():
-                if self.send_message({
-                    'destination': port,
-                    'content': json.dumps(prepare_message)
-                }):
-                    prepare_responses += 1
-
-            # Verificar si todos los nodos están listos
-            if prepare_responses < len(self.nodes_info):
-                print(f"[Node {self.id_node}] Not all nodes are ready. Aborting...")
-                for port, ip in self.nodes_info.items():
-                    self.send_message({
-                        'destination': port,
-                        'content': json.dumps(abort_message)
-                    })
-                return False
-
-            # Fase 2: COMMIT
-            for port, ip in self.nodes_info.items():
-                self.send_message({
-                    'destination': port,
-                    'content': json.dumps(commit_message)
-                })
-            print(f"[Node {self.id_node}] Commit successful.")
-            return True
-        except Exception as e:
-            print(f"[Node {self.id_node}] 2PC error: {e}")
-            return False
-    def add_client(self, name, phone, email):
-        """Agrega un cliente a la base de datos y propaga la actualización a otros nodos"""
-        try:
-            conn = sqlite3.connect(self.db_name)
-            cursor = conn.cursor()
-            # Insertar cliente localmente
-            cursor.execute("""
-                INSERT INTO clients (name, phone, email, last_update)
-                VALUES (?, ?, ?, ?)
-            """, (name, phone, email, datetime.now().isoformat()))
-            conn.commit()
-            client_id = cursor.lastrowid  # Obtener el ID del cliente recién agregado
-            conn.close()
-            print(f"[Node {self.id_node}] Client added: {name}")
-
-            # Propagar la actualización a otros nodos
-            self.propagate_client_update(client_id, name, phone, email)
-
-        except Exception as e:
-            print(f"[Node {self.id_node}] Error adding client: {e}")
-    
-    def propagate_client_update(self, client_id, name, phone, email):
-        """Propaga la actualización de un cliente a los demás nodos"""
-        update_message = {
-            'type': 'CLIENT_UPDATE',
-            'client_id': client_id,
-            'name': name,
-            'phone': phone,
-            'email': email,
-            'last_update': datetime.now().isoformat(),
-            'origin': self.id_node
-        }
-
-        for port, ip in self.nodes_info.items():
-            try:
-                msg = {
-                    'destination': port,
-                    'content': json.dumps(update_message)
-                }
-                if self.send_message(msg):
-                    print(f"[Node {self.id_node}] Client update sent to Node {port - self.base_port}")
-            except Exception as e:
-                print(f"[Node {self.id_node}] Error sending client update to Node {port - self.base_port}: {e}")
-
     def view_clients(self):
         """Muestra la lista de clientes"""
         try:
@@ -1227,161 +1106,6 @@ class Node:
                 print(f"ID: {row[0]}, Name: {row[1]}, Email: {row[2]}, Phone: {row[3]}, Last Updated: {row[4]}")
         except Exception as e:
             print(f"[Node {self.id_node}] Error reading clients: {e}")
-
-    def _add_client_ui(self):
-        """Interfaz para agregar un cliente"""
-        try:
-            name = input("Enter client name: ").strip()
-            email = input("Enter client email: ").strip()
-            phone = input("Enter client phone: ").strip()
-            self.add_client(name, email, phone)
-        except Exception as e:
-            print(f"Error: {e}")
-
-    def _view_clients(self):
-        """Interfaz para ver la lista de clientes"""
-        self.view_clients()
-
-    def two_phase_commit(self, prepare_message, commit_message, abort_message):
-        """Implementa el protocolo de 2PC"""
-        try:
-            # Fase 1: PREPARE
-            prepare_responses = 0
-            for port, ip in self.nodes_info.items():
-                if self.send_message({
-                    'destination': port,
-                    'content': json.dumps(prepare_message)
-                }):
-                    prepare_responses += 1
-
-            # Verificar si todos los nodos están listos
-            if prepare_responses < len(self.nodes_info):
-                print(f"[Node {self.id_node}] Not all nodes are ready. Aborting...")
-                for port, ip in self.nodes_info.items():
-                    self.send_message({
-                        'destination': port,
-                        'content': json.dumps(abort_message)
-                    })
-                return False
-
-            # Fase 2: COMMIT
-            for port, ip in self.nodes_info.items():
-                self.send_message({
-                    'destination': port,
-                    'content': json.dumps(commit_message)
-                })
-            print(f"[Node {self.id_node}] Commit successful.")
-            return True
-        except Exception as e:
-            print(f"[Node {self.id_node}] 2PC error: {e}")
-            return False
-    def add_client(self, name, phone, email):
-        """Agrega un cliente a la base de datos y propaga la actualización a otros nodos"""
-        try:
-            conn = sqlite3.connect(self.db_name)
-            cursor = conn.cursor()
-            # Insertar cliente localmente
-            cursor.execute("""
-                INSERT INTO clients (name, phone, email, last_update)
-                VALUES (?, ?, ?, ?)
-            """, (name, phone, email, datetime.now().isoformat()))
-            conn.commit()
-            client_id = cursor.lastrowid  # Obtener el ID del cliente recién agregado
-            conn.close()
-            print(f"[Node {self.id_node}] Client added: {name}")
-
-            # Propagar la actualización a otros nodos
-            self.propagate_client_update(client_id, name, phone, email)
-
-        except Exception as e:
-            print(f"[Node {self.id_node}] Error adding client: {e}")
-    
-    def propagate_client_update(self, client_id, name, phone, email):
-        """Propaga la actualización de un cliente a los demás nodos"""
-        update_message = {
-            'type': 'CLIENT_UPDATE',
-            'client_id': client_id,
-            'name': name,
-            'phone': phone,
-            'email': email,
-            'last_update': datetime.now().isoformat(),
-            'origin': self.id_node
-        }
-
-        for port, ip in self.nodes_info.items():
-            try:
-                msg = {
-                    'destination': port,
-                    'content': json.dumps(update_message)
-                }
-                if self.send_message(msg):
-                    print(f"[Node {self.id_node}] Client update sent to Node {port - self.base_port}")
-            except Exception as e:
-                print(f"[Node {self.id_node}] Error sending client update to Node {port - self.base_port}: {e}")
-
-    def view_clients(self):
-        """Muestra la lista de clientes"""
-        try:
-            conn = sqlite3.connect(self.db_name)
-            cursor = conn.cursor()
-            cursor.execute("SELECT id, name, email, phone, last_update FROM clients")
-            rows = cursor.fetchall()
-            conn.close()
-
-            print("\nClient List:")
-            print("=" * 40)
-            for row in rows:
-                print(f"ID: {row[0]}, Name: {row[1]}, Email: {row[2]}, Phone: {row[3]}, Last Updated: {row[4]}")
-        except Exception as e:
-            print(f"[Node {self.id_node}] Error reading clients: {e}")
-
-    def _add_client_ui(self):
-        """Interfaz para agregar un cliente"""
-        try:
-            name = input("Enter client name: ").strip()
-            email = input("Enter client email: ").strip()
-            phone = input("Enter client phone: ").strip()
-            self.add_client(name, email, phone)
-        except Exception as e:
-            print(f"Error: {e}")
-
-    def _view_clients(self):
-        """Interfaz para ver la lista de clientes"""
-        self.view_clients()
-
-    def two_phase_commit(self, prepare_message, commit_message, abort_message):
-        """Implementa el protocolo de 2PC"""
-        try:
-            # Fase 1: PREPARE
-            prepare_responses = 0
-            for port, ip in self.nodes_info.items():
-                if self.send_message({
-                    'destination': port,
-                    'content': json.dumps(prepare_message)
-                }):
-                    prepare_responses += 1
-
-            # Verificar si todos los nodos están listos
-            if prepare_responses < len(self.nodes_info):
-                print(f"[Node {self.id_node}] Not all nodes are ready. Aborting...")
-                for port, ip in self.nodes_info.items():
-                    self.send_message({
-                        'destination': port,
-                        'content': json.dumps(abort_message)
-                    })
-                return False
-
-            # Fase 2: COMMIT
-            for port, ip in self.nodes_info.items():
-                self.send_message({
-                    'destination': port,
-                    'content': json.dumps(commit_message)
-                })
-            print(f"[Node {self.id_node}] Commit successful.")
-            return True
-        except Exception as e:
-            print(f"[Node {self.id_node}] 2PC error: {e}")
-            return False
 
     def _send_message_ui(self):
         """Maneja el envío de mensajes desde la UI"""
@@ -1521,8 +1245,6 @@ class Node:
         # Only become master if no replies
         self.become_master()
         
-
-
     def become_master(self):
         """Se declara como maestro y notifica a los demás nodos"""
         self.is_master = True  # Este nodo ahora es el maestro
@@ -1679,138 +1401,6 @@ class Node:
             products_service.update_product(self, product_data)
         except ValueError:
             print("Entrada incorrecta. Por favor intenta de nuevo.")
-
-    def distribute_items(self, item_id, total_quantity):
-        """Distribuye automáticamente los artículos entre las sucursales"""
-        if not self.is_master:
-            print(f"[Node {self.id_node}] Error: Only the master node can distribute items.")
-            return
-
-        print(f"[Node {self.id_node}] Starting distribution of item {item_id} with total quantity {total_quantity}.")
-
-        # Obtener la capacidad actual de cada nodo
-        capacities = {}
-        for port, ip in self.nodes_info.items():
-            try:
-                message = {
-                    'type': 'GET_CAPACITY',
-                    'item_id': item_id,
-                    'origin': self.id_node,
-                    'timestamp': datetime.now().isoformat()
-                }
-                if self.send_message({'destination': port, 'content': json.dumps(message)}):
-                    print(f"[Node {self.id_node}] Requested capacity from Node {port - self.base_port}")
-            except Exception as e:
-                print(f"[Node {self.id_node}] Error requesting capacity from Node {port - self.base_port}: {e}")
-
-        # Simular capacidades (en un entorno real, esto se recibiría como respuesta)
-        capacities = {port: 100 for port in self.nodes_info.keys()}  # Ejemplo: cada nodo tiene capacidad de 100
-
-        # Calcular la distribución equitativa
-        total_nodes = len(capacities)
-        base_quantity = total_quantity // total_nodes
-        remainder = total_quantity % total_nodes
-
-        # Distribuir los artículos
-        for port, capacity in capacities.items():
-            quantity_to_send = base_quantity + (1 if remainder > 0 else 0)
-            if remainder > 0:
-                remainder -= 1
-
-            # Enviar actualización de inventario al nodo
-            update_message = {
-                'type': 'INVENTORY_UPDATE',
-                'item_id': item_id,
-                'new_quantity': quantity_to_send,
-                'origin': self.id_node,
-                'timestamp': datetime.now().isoformat()
-            }
-            try:
-                if self.send_message({'destination': port, 'content': json.dumps(update_message)}):
-                    print(f"[Node {self.id_node}] Sent {quantity_to_send} of item {item_id} to Node {port - self.base_port}")
-            except Exception as e:
-                print(f"[Node {self.id_node}] Error sending inventory update to Node {port - self.base_port}: {e}")
-
-        print(f"[Node {self.id_node}] Distribution summary:")
-        for port, quantity in capacities.items():
-            print(f"  - Node {port - self.base_port}: {quantity} items")
-
-        print(f"[Node {self.id_node}] Distribution of item {item_id} completed.")
-
-    def _distribute_items_ui(self):
-        """Interfaz para distribuir artículos"""
-        try:
-            item_id = int(input("Enter the item ID to distribute: "))
-            total_quantity = int(input("Enter the total quantity to distribute: "))
-            self.distribute_items(item_id, total_quantity)
-        except ValueError:
-            print("Invalid input. Please enter numeric values.")
-
-    def distribute_items(self, item_id, total_quantity):
-        """Distribuye automáticamente los artículos entre las sucursales"""
-        if not self.is_master:
-            print(f"[Node {self.id_node}] Error: Only the master node can distribute items.")
-            return
-
-        print(f"[Node {self.id_node}] Starting distribution of item {item_id} with total quantity {total_quantity}.")
-
-        # Obtener la capacidad actual de cada nodo
-        capacities = {}
-        for port, ip in self.nodes_info.items():
-            try:
-                message = {
-                    'type': 'GET_CAPACITY',
-                    'item_id': item_id,
-                    'origin': self.id_node,
-                    'timestamp': datetime.now().isoformat()
-                }
-                if self.send_message({'destination': port, 'content': json.dumps(message)}):
-                    print(f"[Node {self.id_node}] Requested capacity from Node {port - self.base_port}")
-            except Exception as e:
-                print(f"[Node {self.id_node}] Error requesting capacity from Node {port - self.base_port}: {e}")
-
-        # Simular capacidades (en un entorno real, esto se recibiría como respuesta)
-        capacities = {port: 100 for port in self.nodes_info.keys()}  # Ejemplo: cada nodo tiene capacidad de 100
-
-        # Calcular la distribución equitativa
-        total_nodes = len(capacities)
-        base_quantity = total_quantity // total_nodes
-        remainder = total_quantity % total_nodes
-
-        # Distribuir los artículos
-        for port, capacity in capacities.items():
-            quantity_to_send = base_quantity + (1 if remainder > 0 else 0)
-            if remainder > 0:
-                remainder -= 1
-
-            # Enviar actualización de inventario al nodo
-            update_message = {
-                'type': 'INVENTORY_UPDATE',
-                'item_id': item_id,
-                'new_quantity': quantity_to_send,
-                'origin': self.id_node,
-                'timestamp': datetime.now().isoformat()
-            }
-            try:
-                if self.send_message({'destination': port, 'content': json.dumps(update_message)}):
-                    print(f"[Node {self.id_node}] Sent {quantity_to_send} of item {item_id} to Node {port - self.base_port}")
-            except Exception as e:
-                print(f"[Node {self.id_node}] Error sending inventory update to Node {port - self.base_port}: {e}")
-
-        print(f"[Node {self.id_node}] Distribution summary:")
-        for port, quantity in capacities.items():
-            print(f"  - Node {port - self.base_port}: {quantity} items")
-
-        print(f"[Node {self.id_node}] Distribution of item {item_id} completed.")
-
-    def _distribute_items_ui(self):
-        """Interfaz para distribuir artículos"""
-        try:
-            item_id = int(input("Enter the item ID to distribute: "))
-            total_quantity = int(input("Enter the total quantity to distribute: "))
-            self.distribute_items(item_id, total_quantity)
-        except ValueError:
-            print("Invalid input. Please enter numeric values.")
 
 if __name__ == "__main__":
     # Toma el valor de la variable de entorno NODE_ID, si no se cuenta con valor, se determina con el ultimo
