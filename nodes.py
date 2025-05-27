@@ -177,13 +177,11 @@ class Node:
                 # Handle message types
                 if msg_type == 'COORDINATOR':
                     self.handle_coordinator_message(message)
-
                 elif msg_type == 'ELECTION':
+                    print('ELECTION RECEIVED!')
                     self.handle_election_message(message)
-
                 elif msg_type == 'REPLY':
                     self.handle_reply(message)
-
                 elif msg_type == 'INVENTORY_UPDATE':
                     item_id = message.get('content').get('item_id')
                     new_quantity = message.get('content').get('new_quantity')
@@ -203,15 +201,15 @@ class Node:
                     item_id = message.get('content').get('item_id')
                     current_quantity = self._get_item_quantity(item_id)
                     capacity_message = {
-                        'type': 'CAPACITY_RESPONSE',
                         'item_id': item_id,
                         'capacity': current_quantity,
-                        'origin': self.id_node,
-                        'timestamp': datetime.now().isoformat()
                     }
-                    self.send_message(self, {
+                    self.send_message({
+                        'type': 'CAPACITY_RESPONSE',
+                        'origin': self.id_node,
                         'destination': origin,
-                        'content': json.dumps(capacity_message)
+                        'content': json.dumps(capacity_message),
+                        'timestamp': datetime.now().isoformat(),
                     })
                     print(f"[Nodo {self.id_node}] Se envio stock actual del articulo {item_id} al Nodo {origin}.")
                 elif msg_type == 'PLAIN_TEXT':
@@ -220,7 +218,7 @@ class Node:
                         'origin': self.id_node,
                         'destination': origin,
                         'content': f"ACK: {json.dumps(message.get('content'))}",
-                        'timestamp': datetime.now().isoformat()
+                        'timestamp': datetime.now().isoformat(),
                     }
                     if self.send_message(ack_msg):
                         print(f"[Nodo {self.id_node}] ACK enviado a {origin}")
@@ -237,7 +235,7 @@ class Node:
     def send_message(self, message_dict: dict):
         """
         Envía un mensaje a otro nodo
-        message_dict: Diccionario con la estructura {destination: int, content: JSON}
+        message_dict: Diccionario con la estructura {origin: int, destination: int, type: str, content: JSON}
         """
         node_dest_id = message_dict['destination']
         port_dest = self.base_port + node_dest_id
@@ -275,7 +273,7 @@ class Node:
     
     def _send_message_ui(self):
         """Maneja el envío de mensajes desde la UI"""
-        available_ids = [p - self.base_port for p in self.neighbours.keys()]
+        available_ids = [p for p in self.neighbours.keys()]
         print("\nNodos disponibles (IDs):", available_ids)
         try:
             dest_node_id = int(input("Nodo destino (ID): "))
@@ -291,8 +289,10 @@ class Node:
 
             message: dict = {
                 'type': 'PLAIN_TEXT',
+                'origin': self.id_node,
                 'destination': dest_node_id,
-                'content': content
+                'content': content,
+                'timestamp': datetime.now().isoformat(),
             }
             self.send_message(message)
 
@@ -307,14 +307,14 @@ class Node:
         # Responder con REPLY si no estoy en la sección crítica o si mi solicitud tiene menor prioridad
         if not self.in_critical_section or (self.clock, self.id_node) > (message['clock'], origin):
             reply_message = {
-                'type': 'REPLY',
                 'clock': self.clock,
-                'origin': self.id_node,
-                'timestamp': datetime.now().isoformat()
             }
             self.send_message(self, {
+                'type': 'REPLY',
+                'origin': self.id_node,
                 'destination': origin,
-                'content': json.dumps(reply_message)
+                'content': json.dumps(reply_message),
+                'timestamp': datetime.now().isoformat(),
             })
             print(f"[Nodo {self.id_node}] RESPUESTA enviada al nodo {origin}.")
         else:
@@ -411,14 +411,14 @@ class Node:
         # Enviar mensaje REQUEST a todos los nodos
         for node_id, ip in self.neighbours.items():
             message = {
-                'type': 'REQUEST',
                 'clock': self.clock,
-                'origin': self.id_node,
-                'timestamp': datetime.now().isoformat()
             }
-            if self.send_message(self, {
+            if self.send_message({
+                'type': 'REQUEST',
+                'origin': self.id_node,
                 'destination': node_id,
-                'content': json.dumps(message)
+                'content': json.dumps(message),
+                'timestamp': datetime.now().isoformat(),
             }):
                 print(f"[Nodo {self.id_node}] Enviando SOLICITUD al nodo {node_id - self.base_port}")
             else:
@@ -467,8 +467,10 @@ class Node:
             prepare_responses = 0
             for node_id, ip in self.neighbours.items():
                 if self.send_message({
+                    'origin': self.id_node,
                     'destination': node_id,
-                    'content': json.dumps(prepare_message)
+                    'content': json.dumps(prepare_message),
+                    'timestamp': datetime.now().isoformat(),
                 }):
                     prepare_responses += 1
 
@@ -477,16 +479,20 @@ class Node:
                 print(f"[Nodo {self.id_node}] No todos los nodos estan listos. Abortando...")
                 for node_id, ip in self.neighbours.items():
                     self.send_message({
+                        'origin': self.id_node,
                         'destination': node_id,
-                        'content': json.dumps(abort_message)
+                        'content': json.dumps(abort_message),
+                        'timestamp': datetime.now().isoformat(),
                     })
                 return False
 
             # Fase 2: COMMIT
             for node_id, ip in self.neighbours.items():
                 self.send_message({
+                    'origin': self.id_node,
                     'destination': node_id,
-                    'content': json.dumps(commit_message)
+                    'content': json.dumps(commit_message),
+                    'timestamp': datetime.now().isoformat(),
                 })
             print(f"[Nodo {self.id_node}] Commit aplicado.")
             return True
@@ -509,15 +515,15 @@ class Node:
 
         # Enviar mensajes de ELECTION a nodos con IDs mayores
         election_message = {
-            'type': 'ELECTION',
-            'origin': self.id_node,
             'clock': self.clock,
-            'timestamp': datetime.now().isoformat()
         }
         for node_id in [node_id for node_id in higher_nodes]:
             self.send_message({
+                'type': 'ELECTION',
+                'origin': self.id_node,
                 'destination': node_id,
-                'content': json.dumps(election_message)
+                'content': json.dumps(election_message),
+                'timestamp': datetime.now().isoformat(),
             })
 
         # Esperar respuestas de nodos con IDs mayores
@@ -576,15 +582,15 @@ class Node:
         )
 
         coordinator_message = {
-            'type': 'COORDINATOR',
-            'origin': self.id_node,
             'clock': self.clock,
-            'timestamp': datetime.now().isoformat()
         }
         for node_id in self.neighbours.keys():
             self.send_message({
+                'type': 'COORDINATOR',
+                'origin': self.id_node,
                 'destination': node_id,
-                'content': json.dumps(coordinator_message)
+                'content': json.dumps(coordinator_message),
+                'timestamp': datetime.now().isoformat(),
             })
 
     def announce_master(self):
@@ -592,15 +598,15 @@ class Node:
         for node_id in self.neighbours.keys():
             try:
                 coordinator_message = {
-                    'type': 'COORDINATOR',
-                    'origin': self.id_node,
                     'clock': self.clock,  # Incluye el reloj lógico actual
-                    'timestamp': datetime.now().isoformat()
                 }
                 print(f"[Nodo {self.id_node}] Enviando mensaje como COORDINATOR al Nodo {node_id - self.base_port}: {coordinator_message}")
                 self.send_message({
+                    'type': 'COORDINATOR',
+                    'origin': self.id_node,
                     'destination': node_id,
-                    'content': json.dumps(coordinator_message)
+                    'content': json.dumps(coordinator_message),
+                    'timestamp': datetime.now().isoformat(),
                 })
             except Exception as e:
                 print(f"[Nodo {self.id_node}] Error enviando mensaje como COORDINATOR al Nodo {node_id - self.base_port}: {e}")
@@ -608,6 +614,7 @@ class Node:
     def handle_election_message(self, message):
         """Handles ELECTION messages"""
         self.synchronize_clock(message['clock'])
+        print('ELECCION RECIBIDA')
         if self.id_node > message['origin']:
             print(
                 f"\n[Nodo {self.id_node}] 🔄 RESPUESTA A LA ELECCION\n"
@@ -616,14 +623,14 @@ class Node:
                 f"   └── Enviando RESPUESTA (ID {self.id_node} > {message['origin']})"
             )
             reply = {
-                'type': 'REPLY',
-                'origin': self.id_node,
                 'clock': self.clock,
-                'timestamp': datetime.now().isoformat()
             }
             self.send_message({
+                'type': 'REPLY',
+                'origin': self.id_node,
                 'destination': message['origin'],
-                'content': json.dumps(reply)
+                'content': json.dumps(reply),
+                'timestamp': datetime.now().isoformat(),
             })
             self.start_election()
 

@@ -37,18 +37,18 @@ def propagate_inventory_update(node, item_id, new_quantity):
   total_nodes = len(node.neighbours) + 1  # Incluye este nodo
 
   update_message = {
-    'type': 'INVENTORY_UPDATE',
     'item_id': item_id,
     'new_quantity': new_quantity,
-    'origin': node.id_node,
-    'timestamp': datetime.now().isoformat()
   }
 
   for node_id, ip in node.neighbours.items():
     try:
       msg = {
+        'type': 'INVENTORY_UPDATE',
+        'origin': node.id_node,
         'destination': node_id,
-        'content': json.dumps(update_message)
+        'content': json.dumps(update_message),
+        'timestamp': datetime.now().isoformat(),
       }
       if node.send_message(msg):
         confirmations += 1
@@ -137,9 +137,10 @@ def sync_inventory(node):
   for node_id, ip in node.neighbours.items():
     try:
       message = {
+        'type': 'SYNC_INVENTORY',
         'origin': node.id_node,
         'destination': node_id,
-        'content': 'SYNC_INVENTORY',
+        'content': {},
         'timestamp': datetime.now().isoformat()
       }
       if node.send_message(message):

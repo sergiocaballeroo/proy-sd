@@ -94,12 +94,15 @@ def distribute_items(node, item_id, total_quantity):
     for node_id, ip in node.neighbours.items():
         try:
             message = {
-                'type': 'GET_CAPACITY',
                 'item_id': item_id,
-                'origin': node.id_node,
-                'timestamp': datetime.now().isoformat()
             }
-            if node.send_message({'destination': node_id, 'content': json.dumps(message)}):
+            if node.send_message({
+                'type': 'GET_CAPACITY',
+                'origin': node.id_node,
+                'destination': node_id,
+                'content': json.dumps(message),
+                'timestamp': datetime.now().isoformat(),
+            }):
                 print(f"[Nodo {node.id_node}] Capacidad solicitada desde el Nodo {node_id}")
         except Exception as e:
             print(f"[Nodo {node.id_node}] Error solicitando capacidad desde el Nodo {node_id}: {e}")
@@ -120,14 +123,17 @@ def distribute_items(node, item_id, total_quantity):
 
         # Enviar actualización de inventario al nodo
         update_message = {
-            'type': 'INVENTORY_UPDATE',
             'item_id': item_id,
             'new_quantity': quantity_to_send,
-            'origin': node.id_node,
-            'timestamp': datetime.now().isoformat()
         }
         try:
-            if node.send_message({'destination': port, 'content': json.dumps(update_message)}):
+            if node.send_message({
+                'type': 'INVENTORY_UPDATE',
+                'origin': node.id_node,
+                'destination': port,
+                'content': json.dumps(update_message),
+                'timestamp': datetime.now().isoformat(),
+            }):
                 print(f"[Nodo {node.id_node}] Se enviaron {quantity_to_send} unidades del articulo {item_id} al Nodo {port - node.base_port}")
         except Exception as e:
             print(f"[Nodo {node.id_node}] Error enviando actualizacion del inventario al nodo {port - node.base_port}: {e}")

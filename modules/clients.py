@@ -19,20 +19,21 @@ def view_clients(node):
 def propagate_client_update(node, client_id, name, phone, email):
   """Propaga la actualización de un cliente a los demás nodos"""
   update_message = {
-    'type': 'CLIENT_UPDATE',
     'client_id': client_id,
     'name': name,
     'phone': phone,
     'email': email,
     'last_updated_at': datetime.now().isoformat(),
-    'origin': node.id_node
   }
 
   for node_id, ip in node.neighbours.items():
     try:
       msg = {
+        'type': 'CLIENT_UPDATE',
+        'origin': node.id_node,
         'destination': node_id,
-        'content': json.dumps(update_message)
+        'content': json.dumps(update_message),
+        'timestamp': datetime.now().isoformat(),
       }
       if node.send_message(msg):
         print(f"[Nodo {node.id_node}] Actualizacion de cliente enviada al Nodo {node_id - node.base_port}")
