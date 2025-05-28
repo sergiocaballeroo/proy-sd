@@ -37,9 +37,9 @@ def propagate_client_update(node, client_id, name, phone, email):
         'timestamp': datetime.now().isoformat(),
       }
       if node.send_message(msg):
-        print(f"[Nodo {node.id_node}] Actualizacion de cliente enviada al Nodo {node_id - node.base_port}")
+        print(f"[Nodo {node.id_node}] Actualizacion de cliente enviada al Nodo {node_id}")
     except Exception as e:
-      print(f"[Nodo {node.id_node}] Error enviando actualizacion de cliente al Nodo {node_id - node.base_port}: {e}")
+      print(f"[Nodo {node.id_node}] Error enviando actualizacion de cliente al Nodo {node_id}: {e}")
 
 def add_client(node, name, phone, email):
   """Agrega un cliente a la base de datos y propaga la actualización a otros nodos"""

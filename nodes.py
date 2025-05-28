@@ -200,7 +200,7 @@ class Node:
                         print(f"\n[Nodo {self.id_node}] Inventario actualizado para el item {item_id}")
                 elif msg_type == 'CLIENT_UPDATE':
                     # Handle client updates
-                    clients.handle_client_update(self, message)
+                    clients.handle_client_update(self, message['content'])
                 elif msg_type == 'GET_CAPACITY':
                     item_id = message.get('content').get('item_id')
                     current_quantity = self._get_item_quantity(item_id)
