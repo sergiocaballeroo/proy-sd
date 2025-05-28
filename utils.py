@@ -23,7 +23,7 @@ def ping_ip(ip):
     result = subprocess.run(["ping", "-c", "1", "-W", "1", ip], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
     return result.returncode == 0
   except:
-    return result.returncode == 0
+    return False
 
 def update_neighbours(requester_ip, ips: dict):
   """
