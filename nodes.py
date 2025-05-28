@@ -91,7 +91,7 @@ class Node:
                 except Exception as e:
                     print(f"[Nodo {self.id_node}] Error en servidor: {e}")
     
-    def daemon_check_neighbours(self, interval=15):
+    def daemon_check_neighbours(self, interval=5):
         prev_neighbours = set()
         while True:
             # Se identificarán los "nodos" disponibles al momento de la creación del nodo.
